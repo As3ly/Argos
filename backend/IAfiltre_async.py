@@ -28,9 +28,9 @@ print("AZURE_API_KEY chargé :", (subscription_key or '')[:4] + "****")
 # ========================================================================
 # OPENAI CONFIG
 # ========================================================================
-AZURE_ENDPOINT = "https://fcffroaidevgenialab01.openai.azure.com/"
-DEPLOYMENT = "gpt-5-mini"
-API_VERSION = "2024-12-01-preview"
+AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+DEPLOYMENT = os.getenv("DEPLOYMENT")
+API_VERSION = os.getenv("API_VERSION")
 
 # Timeout augmenté pour éviter les timeouts proxy
 HTTP_TIMEOUT = 45.0
