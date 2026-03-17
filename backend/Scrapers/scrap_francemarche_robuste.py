@@ -44,6 +44,23 @@ class ScrapeConfig:
     max_blocked_pages: int = 3
 
 
+HEADER_TEMPLATE = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
+        "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    ),
+    "Cache-Control": "max-age=0",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "sec-ch-device-memory": "8",
+    "sec-ch-ua-mobile": "?0",
+}
+
+
 HEADER_PROFILES = [
     {
         "User-Agent": (
@@ -57,7 +74,9 @@ HEADER_PROFILES = [
             '"Not.A/Brand";v="24.0.0.0"'
         ),
         "sec-ch-ua-arch": '"x86"',
-        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.7",
+        "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "sec-ch-device-memory": "8",
+        "Sec-Fetch-Site": "none",
     },
     {
         "User-Agent": (
@@ -71,7 +90,9 @@ HEADER_PROFILES = [
             '"Not.A/Brand";v="24.0.0.0"'
         ),
         "sec-ch-ua-arch": '"x86"',
-        "Accept-Language": "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.5",
+        "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-US;q=0.6",
+        "sec-ch-device-memory": "16",
+        "Sec-Fetch-Site": "same-origin",
     },
     {
         "User-Agent": (
@@ -85,7 +106,9 @@ HEADER_PROFILES = [
             '"Not.A/Brand";v="24.0.0.0"'
         ),
         "sec-ch-ua-arch": '"x86"',
-        "Accept-Language": "fr,fr-FR;q=0.9,en-GB;q=0.6,en-US;q=0.5",
+        "Accept-Language": "fr,fr-FR;q=0.9,en-GB;q=0.7,en-US;q=0.6",
+        "sec-ch-device-memory": "8",
+        "Sec-Fetch-Site": "none",
     },
 ]
 
@@ -93,25 +116,32 @@ HEADER_PROFILES = [
 def _build_dynamic_headers() -> dict[str, str]:
     profile = random.choice(HEADER_PROFILES)
 
-    return {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": profile["Accept-Language"],
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-User": "?1",
-        "sec-ch-ua": profile["sec-ch-ua"],
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": profile["sec-ch-ua-platform"],
-        "sec-ch-ua-full-version-list": profile["sec-ch-ua-full-version-list"],
-        "sec-ch-ua-arch": profile["sec-ch-ua-arch"],
-        "User-Agent": profile["User-Agent"],
-        "Referer": "https://www.francemarches.com/recherche",
-    }
+    headers = HEADER_TEMPLATE.copy()
+    headers.update(
+        {
+            "Accept-Language": profile["Accept-Language"],
+            "sec-ch-ua": profile["sec-ch-ua"],
+            "sec-ch-ua-platform": profile["sec-ch-ua-platform"],
+            "sec-ch-ua-full-version-list": profile["sec-ch-ua-full-version-list"],
+            "sec-ch-ua-arch": profile["sec-ch-ua-arch"],
+            "User-Agent": profile["User-Agent"],
+            "Referer": "https://www.francemarches.com/recherche",
+        }
+    )
+
+    if random.random() < 0.35:
+        headers["Cache-Control"] = "no-cache"
+        headers["Pragma"] = "no-cache"
+
+    if random.random() < 0.2:
+        headers["Accept"] = f"{headers['Accept']},application/json;q=0.6"
+
+    if "sec-ch-device-memory" in profile:
+        headers["sec-ch-device-memory"] = profile["sec-ch-device-memory"]
+    if "Sec-Fetch-Site" in profile:
+        headers["Sec-Fetch-Site"] = profile["Sec-Fetch-Site"]
+
+    return headers
 
 
 def build_resilient_session(datadome_cookie: str | None = None) -> requests.Session:
