@@ -236,11 +236,32 @@ def _looks_like_antibot_page(html: str) -> bool:
     markers = [
         "Please enable JS and disable any ad blocker",
         "captcha-delivery.com",
+        "geo.captcha-delivery.com",
+        "interstitial?initialCid=",
+        "window.ddjskey",
+        "ddm=",
+        "forbidden - id:",
+        "__ddg1_",
+        "ddsession",
         "x-datadome",
         "datadome",
     ]
     html_low = html.lower()
     return any(marker.lower() in html_low for marker in markers)
+
+
+def _response_debug_snapshot(response: requests.Response, body_preview_len: int = 180) -> str:
+    preview = response.text[:body_preview_len].replace("\n", "\\n").replace("\r", "")
+    key_headers = {
+        "x-datadome": response.headers.get("x-datadome", ""),
+        "set-cookie": response.headers.get("set-cookie", ""),
+        "server": response.headers.get("server", ""),
+    }
+    return (
+        "status_code="
+        f"{response.status_code} content-length={response.headers.get('content-length', '')} "
+        f"headers={key_headers} body_preview={preview!r}"
+    )
 
 
 def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str:
@@ -266,6 +287,7 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
             continue
 
         blocked = response.status_code == 403 or _looks_like_antibot_page(response.text)
+        print(f"[http] {_response_debug_snapshot(response)}")
         if blocked:
             if response.status_code == 403:
                 session._argos_consecutive_403 += 1
