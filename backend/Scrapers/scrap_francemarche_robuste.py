@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Iterable
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 import truststore
@@ -42,52 +42,148 @@ class ScrapeConfig:
     jitter_min_s: float = 0.4
     jitter_max_s: float = 1.6
     max_blocked_pages: int = 3
+    rotate_after_consecutive_403: int = 3
 
 
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-]
+HEADER_TEMPLATE = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
+        "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    ),
+    "Cache-Control": "max-age=0",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "sec-ch-device-memory": "8",
+    "sec-ch-ua-mobile": "?0",
+}
 
-LANGS = [
-    "fr-FR,fr;q=0.9,en;q=0.7",
-    "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.5",
-    "fr,fr-FR;q=0.9,en-GB;q=0.6,en-US;q=0.5",
-]
 
-
-def _build_dynamic_headers() -> dict[str, str]:
-    ua = random.choice(USER_AGENTS)
-    lang = random.choice(LANGS)
-    chromium_major = random.choice([123, 124, 125])
-
-    return {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": lang,
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
+HEADER_PROFILES = [
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "sec-ch-device-memory": "8",
+        "Sec-Fetch-Site": "none",
+    },
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/123.0.6312.122 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="123", "Chromium";v="123", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"Linux"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="123.0.6312.122", "Chromium";v="123.0.6312.122", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-US;q=0.6",
+        "sec-ch-device-memory": "16",
         "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-User": "?1",
-        "sec-ch-ua": f'"Chromium";v="{chromium_major}", "Not.A/Brand";v="8"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": random.choice(['"Windows"', '"Linux"', '"macOS"']),
-        "User-Agent": ua,
-        "Referer": "https://www.francemarches.com/recherche",
-    }
+    },
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr,fr-FR;q=0.9,en-GB;q=0.7,en-US;q=0.6",
+        "sec-ch-device-memory": "8",
+        "Sec-Fetch-Site": "none",
+    },
+]
+
+
+def _is_search_request(url: str) -> bool:
+    return urlparse(url).path == "/recherche"
+
+
+def _is_initial_search_page(url: str) -> bool:
+    if not _is_search_request(url):
+        return False
+    page_values = parse_qs(urlparse(url).query).get("page", ["1"])
+    return page_values[0] == "1"
+
+
+def _build_stable_header_profile() -> dict[str, str]:
+    profile = random.choice(HEADER_PROFILES)
+
+    headers = HEADER_TEMPLATE.copy()
+    headers.update(
+        {
+            "Accept-Language": profile["Accept-Language"],
+            "sec-ch-ua": profile["sec-ch-ua"],
+            "sec-ch-ua-platform": profile["sec-ch-ua-platform"],
+            "sec-ch-ua-full-version-list": profile["sec-ch-ua-full-version-list"],
+            "sec-ch-ua-arch": profile["sec-ch-ua-arch"],
+            "User-Agent": profile["User-Agent"],
+        }
+    )
+
+    if random.random() < 0.35:
+        headers["Cache-Control"] = "no-cache"
+        headers["Pragma"] = "no-cache"
+
+    if random.random() < 0.2:
+        headers["Accept"] = f"{headers['Accept']},application/json;q=0.6"
+
+    if "sec-ch-device-memory" in profile:
+        headers["sec-ch-device-memory"] = profile["sec-ch-device-memory"]
+    if "Sec-Fetch-Site" in profile:
+        headers["Sec-Fetch-Site"] = profile["Sec-Fetch-Site"]
+
+    return headers
+
+
+def _build_request_headers(
+    base_headers: dict[str, str],
+    *,
+    url: str | None = None,
+    first_navigation: bool = False,
+) -> dict[str, str]:
+    headers = base_headers.copy()
+
+    if not first_navigation and url and _is_search_request(url) and not _is_initial_search_page(url):
+        headers["Referer"] = "https://www.francemarches.com/recherche"
+
+    if url and _is_initial_search_page(url):
+        headers["Sec-Fetch-Site"] = "none"
+
+    return headers
+
+
+def _rotate_session_profile(session: requests.Session) -> None:
+    session._argos_header_profile = _build_stable_header_profile()
 
 
 def build_resilient_session(datadome_cookie: str | None = None) -> requests.Session:
     sess = requests.Session()
     sess.proxies = proxies
-    sess.headers.update(_build_dynamic_headers())
+    _rotate_session_profile(sess)
+    sess._argos_first_navigation_done = False
+    sess._argos_consecutive_403 = 0
+    sess.headers.clear()
+    sess.headers.update(_build_request_headers(sess._argos_header_profile, first_navigation=True))
 
     cookie = datadome_cookie or os.getenv("FM_DATADOME_COOKIE")
     if cookie:
@@ -137,10 +233,22 @@ def _looks_like_antibot_page(html: str) -> bool:
 
 
 def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str:
+    if not hasattr(session, "_argos_header_profile"):
+        _rotate_session_profile(session)
+    if not hasattr(session, "_argos_first_navigation_done"):
+        session._argos_first_navigation_done = False
+    if not hasattr(session, "_argos_consecutive_403"):
+        session._argos_consecutive_403 = 0
+
     for attempt in range(1, cfg.retries + 1):
-        session.headers.update(_build_dynamic_headers())
+        first_navigation = not getattr(session, "_argos_first_navigation_done", False)
+        session.headers.clear()
+        session.headers.update(
+            _build_request_headers(session._argos_header_profile, url=url, first_navigation=first_navigation)
+        )
         try:
             response = session.get(url, timeout=cfg.timeout_s)
+            session._argos_first_navigation_done = True
         except requests.RequestException as exc:
             wait_s = min(20.0, cfg.base_delay_s * (2 ** (attempt - 1))) + random.uniform(0.0, 1.2)
             print(f"[retry] Erreur réseau sur tentative {attempt}/{cfg.retries}: {exc}. Pause {wait_s:.1f}s")
@@ -149,10 +257,21 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
 
         blocked = response.status_code == 403 or _looks_like_antibot_page(response.text)
         if blocked:
+            if response.status_code == 403:
+                session._argos_consecutive_403 += 1
+                if session._argos_consecutive_403 >= cfg.rotate_after_consecutive_403:
+                    _rotate_session_profile(session)
+                    session._argos_consecutive_403 = 0
+                    print("[403] Rotation du profil de headers après blocages consécutifs")
+            else:
+                session._argos_consecutive_403 = 0
+
             wait_s = min(45.0, cfg.base_delay_s * (2 ** attempt)) + random.uniform(2.0, 6.0)
             print(f"[403] Bloqué (tentative {attempt}/{cfg.retries}) - pause longue {wait_s:.1f}s")
             time.sleep(wait_s)
             continue
+
+        session._argos_consecutive_403 = 0
 
         if response.status_code >= 400:
             print(f"[warn] HTTP {response.status_code} sur {url}")
@@ -289,7 +408,7 @@ def plan_anti_blocage() -> list[str]:
     """Plan synthétique à appliquer avant un scraping grand volume."""
     return [
         "Démarrer avec des lots de pages modestes (10-20 pages), mesurer le taux de 403 et ajuster le pacing.",
-        "Utiliser une session persistante + rotation de headers réalistes à chaque requête.",
+        "Utiliser une session persistante + profil de headers stable; ne le faire tourner qu'après N erreurs 403 consécutives.",
         "Détecter explicitement Datadome/antibot et appliquer backoff exponentiel long (pas de retry agressif).",
         "Répartir la charge temporellement (batching) plutôt qu'un pic continu.",
         "Superviser en continu: ratio 2xx/403, temps moyen, pages vides, puis couper automatiquement en cas d'emballement.",
