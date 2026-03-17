@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Iterable
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 import truststore
@@ -113,7 +113,22 @@ HEADER_PROFILES = [
 ]
 
 
-def _build_dynamic_headers() -> dict[str, str]:
+def _is_search_request(url: str) -> bool:
+    return urlparse(url).path == "/recherche"
+
+
+def _is_initial_search_page(url: str) -> bool:
+    if not _is_search_request(url):
+        return False
+    page_values = parse_qs(urlparse(url).query).get("page", ["1"])
+    return page_values[0] == "1"
+
+
+def _build_dynamic_headers(
+    *,
+    url: str | None = None,
+    first_navigation: bool = False,
+) -> dict[str, str]:
     profile = random.choice(HEADER_PROFILES)
 
     headers = HEADER_TEMPLATE.copy()
@@ -125,9 +140,11 @@ def _build_dynamic_headers() -> dict[str, str]:
             "sec-ch-ua-full-version-list": profile["sec-ch-ua-full-version-list"],
             "sec-ch-ua-arch": profile["sec-ch-ua-arch"],
             "User-Agent": profile["User-Agent"],
-            "Referer": "https://www.francemarches.com/recherche",
         }
     )
+
+    if not first_navigation and url and _is_search_request(url) and not _is_initial_search_page(url):
+        headers["Referer"] = "https://www.francemarches.com/recherche"
 
     if random.random() < 0.35:
         headers["Cache-Control"] = "no-cache"
@@ -141,13 +158,16 @@ def _build_dynamic_headers() -> dict[str, str]:
     if "Sec-Fetch-Site" in profile:
         headers["Sec-Fetch-Site"] = profile["Sec-Fetch-Site"]
 
+    if url and _is_initial_search_page(url):
+        headers["Sec-Fetch-Site"] = "none"
+
     return headers
 
 
 def build_resilient_session(datadome_cookie: str | None = None) -> requests.Session:
     sess = requests.Session()
     sess.proxies = proxies
-    sess.headers.update(_build_dynamic_headers())
+    sess.headers.update(_build_dynamic_headers(first_navigation=True))
 
     cookie = datadome_cookie or os.getenv("FM_DATADOME_COOKIE")
     if cookie:
@@ -198,9 +218,11 @@ def _looks_like_antibot_page(html: str) -> bool:
 
 def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str:
     for attempt in range(1, cfg.retries + 1):
-        session.headers.update(_build_dynamic_headers())
+        first_navigation = not getattr(session, "_argos_first_navigation_done", False)
+        session.headers.update(_build_dynamic_headers(url=url, first_navigation=first_navigation))
         try:
             response = session.get(url, timeout=cfg.timeout_s)
+            session._argos_first_navigation_done = True
         except requests.RequestException as exc:
             wait_s = min(20.0, cfg.base_delay_s * (2 ** (attempt - 1))) + random.uniform(0.0, 1.2)
             print(f"[retry] Erreur réseau sur tentative {attempt}/{cfg.retries}: {exc}. Pause {wait_s:.1f}s")
