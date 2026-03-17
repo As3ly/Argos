@@ -42,6 +42,7 @@ class ScrapeConfig:
     jitter_min_s: float = 0.4
     jitter_max_s: float = 1.6
     max_blocked_pages: int = 3
+    rotate_after_consecutive_403: int = 3
 
 
 HEADER_TEMPLATE = {
@@ -124,11 +125,7 @@ def _is_initial_search_page(url: str) -> bool:
     return page_values[0] == "1"
 
 
-def _build_dynamic_headers(
-    *,
-    url: str | None = None,
-    first_navigation: bool = False,
-) -> dict[str, str]:
+def _build_stable_header_profile() -> dict[str, str]:
     profile = random.choice(HEADER_PROFILES)
 
     headers = HEADER_TEMPLATE.copy()
@@ -143,9 +140,6 @@ def _build_dynamic_headers(
         }
     )
 
-    if not first_navigation and url and _is_search_request(url) and not _is_initial_search_page(url):
-        headers["Referer"] = "https://www.francemarches.com/recherche"
-
     if random.random() < 0.35:
         headers["Cache-Control"] = "no-cache"
         headers["Pragma"] = "no-cache"
@@ -158,16 +152,38 @@ def _build_dynamic_headers(
     if "Sec-Fetch-Site" in profile:
         headers["Sec-Fetch-Site"] = profile["Sec-Fetch-Site"]
 
+    return headers
+
+
+def _build_request_headers(
+    base_headers: dict[str, str],
+    *,
+    url: str | None = None,
+    first_navigation: bool = False,
+) -> dict[str, str]:
+    headers = base_headers.copy()
+
+    if not first_navigation and url and _is_search_request(url) and not _is_initial_search_page(url):
+        headers["Referer"] = "https://www.francemarches.com/recherche"
+
     if url and _is_initial_search_page(url):
         headers["Sec-Fetch-Site"] = "none"
 
     return headers
 
 
+def _rotate_session_profile(session: requests.Session) -> None:
+    session._argos_header_profile = _build_stable_header_profile()
+
+
 def build_resilient_session(datadome_cookie: str | None = None) -> requests.Session:
     sess = requests.Session()
     sess.proxies = proxies
-    sess.headers.update(_build_dynamic_headers(first_navigation=True))
+    _rotate_session_profile(sess)
+    sess._argos_first_navigation_done = False
+    sess._argos_consecutive_403 = 0
+    sess.headers.clear()
+    sess.headers.update(_build_request_headers(sess._argos_header_profile, first_navigation=True))
 
     cookie = datadome_cookie or os.getenv("FM_DATADOME_COOKIE")
     if cookie:
@@ -217,9 +233,19 @@ def _looks_like_antibot_page(html: str) -> bool:
 
 
 def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str:
+    if not hasattr(session, "_argos_header_profile"):
+        _rotate_session_profile(session)
+    if not hasattr(session, "_argos_first_navigation_done"):
+        session._argos_first_navigation_done = False
+    if not hasattr(session, "_argos_consecutive_403"):
+        session._argos_consecutive_403 = 0
+
     for attempt in range(1, cfg.retries + 1):
         first_navigation = not getattr(session, "_argos_first_navigation_done", False)
-        session.headers.update(_build_dynamic_headers(url=url, first_navigation=first_navigation))
+        session.headers.clear()
+        session.headers.update(
+            _build_request_headers(session._argos_header_profile, url=url, first_navigation=first_navigation)
+        )
         try:
             response = session.get(url, timeout=cfg.timeout_s)
             session._argos_first_navigation_done = True
@@ -231,10 +257,21 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
 
         blocked = response.status_code == 403 or _looks_like_antibot_page(response.text)
         if blocked:
+            if response.status_code == 403:
+                session._argos_consecutive_403 += 1
+                if session._argos_consecutive_403 >= cfg.rotate_after_consecutive_403:
+                    _rotate_session_profile(session)
+                    session._argos_consecutive_403 = 0
+                    print("[403] Rotation du profil de headers après blocages consécutifs")
+            else:
+                session._argos_consecutive_403 = 0
+
             wait_s = min(45.0, cfg.base_delay_s * (2 ** attempt)) + random.uniform(2.0, 6.0)
             print(f"[403] Bloqué (tentative {attempt}/{cfg.retries}) - pause longue {wait_s:.1f}s")
             time.sleep(wait_s)
             continue
+
+        session._argos_consecutive_403 = 0
 
         if response.status_code >= 400:
             print(f"[warn] HTTP {response.status_code} sur {url}")
@@ -371,7 +408,7 @@ def plan_anti_blocage() -> list[str]:
     """Plan synthétique à appliquer avant un scraping grand volume."""
     return [
         "Démarrer avec des lots de pages modestes (10-20 pages), mesurer le taux de 403 et ajuster le pacing.",
-        "Utiliser une session persistante + rotation de headers réalistes à chaque requête.",
+        "Utiliser une session persistante + profil de headers stable; ne le faire tourner qu'après N erreurs 403 consécutives.",
         "Détecter explicitement Datadome/antibot et appliquer backoff exponentiel long (pas de retry agressif).",
         "Répartir la charge temporellement (batching) plutôt qu'un pic continu.",
         "Superviser en continu: ratio 2xx/403, temps moyen, pages vides, puis couper automatiquement en cas d'emballement.",
