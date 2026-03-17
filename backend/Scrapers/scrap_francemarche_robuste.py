@@ -43,6 +43,7 @@ class ScrapeConfig:
     jitter_max_s: float = 1.6
     max_blocked_pages: int = 3
     rotate_after_consecutive_403: int = 3
+    rotate_after_pages: int = 30
 
 
 HEADER_TEMPLATE = {
@@ -176,14 +177,24 @@ def _rotate_session_profile(session: requests.Session) -> None:
     session._argos_header_profile = _build_stable_header_profile()
 
 
+def _restart_session(session: requests.Session) -> None:
+    datadome_cookie = session.cookies.get("datadome", domain=".francemarches.com", path="/")
+    session.cookies.clear()
+    if datadome_cookie:
+        session.cookies.set("datadome", datadome_cookie, domain=".francemarches.com", path="/")
+
+    _rotate_session_profile(session)
+    session._argos_first_navigation_done = False
+    session._argos_consecutive_403 = 0
+    session._argos_pages_since_rotation = 0
+    session.headers.clear()
+    session.headers.update(_build_request_headers(session._argos_header_profile, is_first_request=True))
+
+
 def build_resilient_session(datadome_cookie: str | None = None) -> requests.Session:
     sess = requests.Session()
     sess.proxies = proxies
-    _rotate_session_profile(sess)
-    sess._argos_first_navigation_done = False
-    sess._argos_consecutive_403 = 0
-    sess.headers.clear()
-    sess.headers.update(_build_request_headers(sess._argos_header_profile, is_first_request=True))
+    _restart_session(sess)
 
     cookie = datadome_cookie or os.getenv("FM_DATADOME_COOKIE")
     if cookie:
@@ -239,15 +250,14 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
         session._argos_first_navigation_done = False
     if not hasattr(session, "_argos_consecutive_403"):
         session._argos_consecutive_403 = 0
+    if not hasattr(session, "_argos_pages_since_rotation"):
+        session._argos_pages_since_rotation = 0
 
     for attempt in range(1, cfg.retries + 1):
         is_first_request = not getattr(session, "_argos_first_navigation_done", False)
-        session.headers.clear()
-        session.headers.update(
-            _build_request_headers(session._argos_header_profile, url=url, is_first_request=is_first_request)
-        )
+        request_headers = _build_request_headers(session._argos_header_profile, url=url, is_first_request=is_first_request)
         try:
-            response = session.get(url, timeout=cfg.timeout_s)
+            response = session.get(url, timeout=cfg.timeout_s, headers=request_headers)
             session._argos_first_navigation_done = True
         except requests.RequestException as exc:
             wait_s = min(20.0, cfg.base_delay_s * (2 ** (attempt - 1))) + random.uniform(0.0, 1.2)
@@ -260,9 +270,8 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
             if response.status_code == 403:
                 session._argos_consecutive_403 += 1
                 if session._argos_consecutive_403 >= cfg.rotate_after_consecutive_403:
-                    _rotate_session_profile(session)
-                    session._argos_consecutive_403 = 0
-                    print("[403] Rotation du profil de headers après blocages consécutifs")
+                    _restart_session(session)
+                    print("[403] Redémarrage de session + rotation du profil après blocages consécutifs")
             else:
                 session._argos_consecutive_403 = 0
 
@@ -276,6 +285,11 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
         if response.status_code >= 400:
             print(f"[warn] HTTP {response.status_code} sur {url}")
             return ""
+
+        session._argos_pages_since_rotation += 1
+        if session._argos_pages_since_rotation >= cfg.rotate_after_pages:
+            _restart_session(session)
+            print("[rotate] Redémarrage de session après seuil de pages atteint")
 
         return response.text
 
