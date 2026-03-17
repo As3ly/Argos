@@ -44,30 +44,58 @@ class ScrapeConfig:
     max_blocked_pages: int = 3
 
 
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-]
-
-LANGS = [
-    "fr-FR,fr;q=0.9,en;q=0.7",
-    "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.5",
-    "fr,fr-FR;q=0.9,en-GB;q=0.6,en-US;q=0.5",
+HEADER_PROFILES = [
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.7",
+    },
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/123.0.6312.122 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="123", "Chromium";v="123", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"Linux"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="123.0.6312.122", "Chromium";v="123.0.6312.122", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.5",
+    },
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+        ),
+        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-ch-ua-full-version-list": (
+            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
+            '"Not.A/Brand";v="24.0.0.0"'
+        ),
+        "sec-ch-ua-arch": '"x86"',
+        "Accept-Language": "fr,fr-FR;q=0.9,en-GB;q=0.6,en-US;q=0.5",
+    },
 ]
 
 
 def _build_dynamic_headers() -> dict[str, str]:
-    ua = random.choice(USER_AGENTS)
-    lang = random.choice(LANGS)
-    chromium_major = random.choice([123, 124, 125])
+    profile = random.choice(HEADER_PROFILES)
 
     return {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": lang,
+        "Accept-Language": profile["Accept-Language"],
         "Cache-Control": "no-cache",
         "Pragma": "no-cache",
         "Connection": "keep-alive",
@@ -76,10 +104,12 @@ def _build_dynamic_headers() -> dict[str, str]:
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-User": "?1",
-        "sec-ch-ua": f'"Chromium";v="{chromium_major}", "Not.A/Brand";v="8"',
+        "sec-ch-ua": profile["sec-ch-ua"],
         "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": random.choice(['"Windows"', '"Linux"', '"macOS"']),
-        "User-Agent": ua,
+        "sec-ch-ua-platform": profile["sec-ch-ua-platform"],
+        "sec-ch-ua-full-version-list": profile["sec-ch-ua-full-version-list"],
+        "sec-ch-ua-arch": profile["sec-ch-ua-arch"],
+        "User-Agent": profile["User-Agent"],
         "Referer": "https://www.francemarches.com/recherche",
     }
 
