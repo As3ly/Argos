@@ -46,19 +46,22 @@ class ScrapeConfig:
 
 
 HEADER_TEMPLATE = {
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
-        "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
     "Cache-Control": "max-age=0",
     "Connection": "keep-alive",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
     "Upgrade-Insecure-Requests": "1",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "none",
     "Sec-Fetch-User": "?1",
     "sec-ch-device-memory": "8",
+    "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
+    "sec-ch-ua-arch": '"x86"',
+    "sec-ch-ua-full-version-list": '"Not(A:Brand";v="8.0.0.0", "Chromium";v="144.0.7559.97", "Microsoft Edge";v="144.0.3719.92"',
     "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
 }
 
 
@@ -66,13 +69,13 @@ HEADER_PROFILES = [
     {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
         ),
-        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+        "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
         "sec-ch-ua-platform": '"Windows"',
         "sec-ch-ua-full-version-list": (
-            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
-            '"Not.A/Brand";v="24.0.0.0"'
+            '"Not(A:Brand";v="8.0.0.0", "Chromium";v="144.0.7559.97", '
+            '"Microsoft Edge";v="144.0.3719.92"'
         ),
         "sec-ch-ua-arch": '"x86"',
         "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
@@ -81,14 +84,14 @@ HEADER_PROFILES = [
     },
     {
         "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/123.0.6312.122 Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
         ),
-        "sec-ch-ua": '"Google Chrome";v="123", "Chromium";v="123", "Not.A/Brand";v="24"',
-        "sec-ch-ua-platform": '"Linux"',
+        "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
+        "sec-ch-ua-platform": '"Windows"',
         "sec-ch-ua-full-version-list": (
-            '"Google Chrome";v="123.0.6312.122", "Chromium";v="123.0.6312.122", '
-            '"Not.A/Brand";v="24.0.0.0"'
+            '"Not(A:Brand";v="8.0.0.0", "Chromium";v="144.0.7559.101", '
+            '"Microsoft Edge";v="144.0.3721.6"'
         ),
         "sec-ch-ua-arch": '"x86"',
         "Accept-Language": "fr,fr-FR;q=0.9,en;q=0.8,en-US;q=0.6",
@@ -97,14 +100,14 @@ HEADER_PROFILES = [
     },
     {
         "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/124.0.6367.201 Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
         ),
-        "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
-        "sec-ch-ua-platform": '"macOS"',
+        "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
+        "sec-ch-ua-platform": '"Windows"',
         "sec-ch-ua-full-version-list": (
-            '"Google Chrome";v="124.0.6367.201", "Chromium";v="124.0.6367.201", '
-            '"Not.A/Brand";v="24.0.0.0"'
+            '"Not(A:Brand";v="8.0.0.0", "Chromium";v="144.0.7559.105", '
+            '"Microsoft Edge";v="144.0.3723.0"'
         ),
         "sec-ch-ua-arch": '"x86"',
         "Accept-Language": "fr,fr-FR;q=0.9,en-GB;q=0.7,en-US;q=0.6",
@@ -143,9 +146,6 @@ def _build_stable_header_profile() -> dict[str, str]:
     if random.random() < 0.35:
         headers["Cache-Control"] = "no-cache"
         headers["Pragma"] = "no-cache"
-
-    if random.random() < 0.2:
-        headers["Accept"] = f"{headers['Accept']},application/json;q=0.6"
 
     if "sec-ch-device-memory" in profile:
         headers["sec-ch-device-memory"] = profile["sec-ch-device-memory"]
