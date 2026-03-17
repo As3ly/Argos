@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import statistics
 import time
+from pathlib import Path
+
+
+# Permet l'import de backend/inspect_db.py quand le script est lancé depuis la racine.
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 
 try:
