@@ -99,19 +99,19 @@ CRITERES_GEN_SCHEMA = {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 5,
-                "maxItems": 15
+                "maxItems": 50
             },
             "regles": {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 2,
-                "maxItems": 10
+                "maxItems": 50
             },
             "mots_recherche": {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 3,
-                "maxItems": 20
+                "maxItems": 50
             },
             "titre_recherche": {
                 "type": "string",
