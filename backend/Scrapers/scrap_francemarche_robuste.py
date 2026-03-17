@@ -159,15 +159,15 @@ def _build_request_headers(
     base_headers: dict[str, str],
     *,
     url: str | None = None,
-    first_navigation: bool = False,
+    is_first_request: bool = False,
 ) -> dict[str, str]:
     headers = base_headers.copy()
 
-    if not first_navigation and url and _is_search_request(url) and not _is_initial_search_page(url):
-        headers["Referer"] = "https://www.francemarches.com/recherche"
-
-    if url and _is_initial_search_page(url):
+    if is_first_request:
         headers["Sec-Fetch-Site"] = "none"
+
+    if not is_first_request and url and _is_search_request(url) and not _is_initial_search_page(url):
+        headers["Referer"] = "https://www.francemarches.com/recherche"
 
     return headers
 
@@ -183,7 +183,7 @@ def build_resilient_session(datadome_cookie: str | None = None) -> requests.Sess
     sess._argos_first_navigation_done = False
     sess._argos_consecutive_403 = 0
     sess.headers.clear()
-    sess.headers.update(_build_request_headers(sess._argos_header_profile, first_navigation=True))
+    sess.headers.update(_build_request_headers(sess._argos_header_profile, is_first_request=True))
 
     cookie = datadome_cookie or os.getenv("FM_DATADOME_COOKIE")
     if cookie:
@@ -241,10 +241,10 @@ def resilient_get(url: str, session: requests.Session, cfg: ScrapeConfig) -> str
         session._argos_consecutive_403 = 0
 
     for attempt in range(1, cfg.retries + 1):
-        first_navigation = not getattr(session, "_argos_first_navigation_done", False)
+        is_first_request = not getattr(session, "_argos_first_navigation_done", False)
         session.headers.clear()
         session.headers.update(
-            _build_request_headers(session._argos_header_profile, url=url, first_navigation=first_navigation)
+            _build_request_headers(session._argos_header_profile, url=url, is_first_request=is_first_request)
         )
         try:
             response = session.get(url, timeout=cfg.timeout_s)
