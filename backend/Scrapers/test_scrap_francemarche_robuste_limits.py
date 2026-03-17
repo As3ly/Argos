@@ -29,6 +29,22 @@ except Exception as exc:  # pragma: no cover - script utilitaire
     raise SystemExit(f"Import impossible du scraper robuste: {exc}")
 
 
+
+
+def _response_debug_snapshot(response: requests.Response, body_preview_len: int = 180) -> str:
+    preview = response.text[:body_preview_len].replace("\n", "\\n").replace("\r", "")
+    key_headers = {
+        "x-datadome": response.headers.get("x-datadome", ""),
+        "set-cookie": response.headers.get("set-cookie", ""),
+        "server": response.headers.get("server", ""),
+    }
+    return (
+        "status_code="
+        f"{response.status_code} content-length={response.headers.get('content-length', '')} "
+        f"headers={key_headers} body_preview={preview!r}"
+    )
+
+
 def current_profile_id(session: requests.Session) -> str:
     active = getattr(session, "_argos_header_profile", None)
     if not isinstance(active, dict):
@@ -64,6 +80,7 @@ def run_benchmark(query: str, pages: int, base_delay_s: float) -> None:
                 response = sess.get(url, timeout=cfg.timeout_s)
                 status_code = response.status_code
                 html = response.text
+                print(f"[http] page={page} tentative={attempt}/{cfg.retries} {_response_debug_snapshot(response)}")
             except requests.RequestException as exc:
                 print(f"[ERR] page={page} tentative={attempt}/{cfg.retries} erreur_reseau={exc}")
                 time.sleep(cfg.base_delay_s)
