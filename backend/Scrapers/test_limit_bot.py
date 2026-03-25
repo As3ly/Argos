@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import truststore
+import framatome
 
 
 # Permet l'import de backend/inspect_db.py quand le script est lancé depuis la racine.
@@ -37,7 +39,6 @@ if str(BACKEND_DIR) not in sys.path:
 
 try:
     from scrap_francemarche import (
-        build_francemarche_session,
         extraire_liens_offres_frmar,
         generer_url,
         headers as BASE_HEADERS,
@@ -52,6 +53,14 @@ DATADOME_MARKERS = [
     "x-datadome",
     "datadome",
 ]
+
+
+FRAMATOME_PROXIES = {
+    "http": framatome.HTTP_PROXY,
+    "https": framatome.HTTPS_PROXY,
+}
+
+truststore.inject_into_ssl()
 
 
 @dataclass(slots=True)
@@ -133,6 +142,14 @@ def parse_rpm_list(raw: str) -> list[int]:
 def configure_profile(session: requests.Session, profile_name: str) -> None:
     session.headers.clear()
     session.headers.update(HEADER_VARIANTS[profile_name])
+
+
+def build_limit_test_session(profile_name: str = "baseline") -> requests.Session:
+    """Session de test alignée sur scrap_francemarche.py (proxy + truststore + headers)."""
+    session = requests.Session()
+    session.proxies = FRAMATOME_PROXIES
+    configure_profile(session, profile_name)
+    return session
 
 
 def request_once(session: requests.Session, url: str, timeout_s: float) -> RequestResult:
@@ -294,8 +311,7 @@ def run_limits_benchmark(
     search_urls = [generer_url(mots, page=i + 1) for i in range(max(search_rpms))]
 
     # Collecte de pages d'articles avec le profil baseline.
-    baseline_sess = build_francemarche_session()
-    configure_profile(baseline_sess, "baseline")
+    baseline_sess = build_limit_test_session(profile_name="baseline")
     article_urls = collect_article_urls(
         session=baseline_sess,
         query=query,
@@ -313,8 +329,7 @@ def run_limits_benchmark(
     print(f"[info] URLs articles collectées: {len(article_urls)}")
 
     for profile_name in HEADER_VARIANTS:
-        session = build_francemarche_session()
-        configure_profile(session, profile_name)
+        session = build_limit_test_session(profile_name=profile_name)
 
         print(f"\n[info] Démarrage des tests profil={profile_name}")
 
