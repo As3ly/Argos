@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+            
+        <!-- Google Tag Manager -->
+            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-MV483X');</script>
+        <!-- End Google Tag Manager -->
+            
+            <!-- Piano Analytics SDKs -->
+                        <script
+              type="text/javascript"
+              crossorigin="anonymous"
+              src="https://tag.aticdn.net/piano-analytics.js"
+            ></script>
+                    <!-- Piano Analytics SDKs -->
+    
+                                <script type='text/javascript'>
+                var weboramaItemTag = JSON.parse("\u007B\u0022editor_user_id\u0022\u003A\u0022\u0022,\u0022editor_group\u0022\u003A\u0022francemarches\u0022,\u0022environnement\u0022\u003A\u0022francemarches_prod\u0022,\u0022title_article\u0022\u003A\u0022\u0022,\u0022keywords\u0022\u003A\u0022\u0022,\u0022topics\u0022\u003A\u0022\u0022,\u0022publication_date\u0022\u003A\u0022\u0022,\u0022media_enrichment\u0022\u003A\u0022\u0022,\u0022blocked_article\u0022\u003A\u0022\u0022,\u0022premium_article\u0022\u003A\u0022\u0022,\u0022length_words\u0022\u003A\u0022\u0022,\u0022nb_paragraph\u0022\u003A\u0022\u0022,\u0022reading_time\u0022\u003A\u0022\u0022,\u0022sponsored\u0022\u003A\u0022\u0022,\u0022sponsored_by\u0022\u003A\u0022\u0022,\u0022INSEE_code\u0022\u003A\u0022\u0022,\u0022zipcode\u0022\u003A\u0022\u0022,\u0022departement_id\u0022\u003A\u0022\u0022,\u0022departement_label\u0022\u003A\u0022\u0022,\u0022region\u0022\u003A\u0022\u0022,\u0022city\u0022\u003A\u0022\u0022,\u0022website_user_id\u0022\u003A\u0022\u0022,\u0022email_hashed\u0022\u003A\u0022\u0022,\u0022inscription_date\u0022\u003A\u0022\u0022,\u0022user_connected\u0022\u003A\u00220\u0022,\u0022user_subscriber\u0022\u003A\u00220\u0022,\u0022type_subscription\u0022\u003A\u0022\u0022,\u0022navigation\u0022\u003A\u0022\u0022\u007D");
+            </script>
+        
+        <script type='text/javascript'>
+            var wamid = '7245'; /* Wam Account ID du compte éditeur*/
+            var typ = '1'; /* Event Type default 1 */
+
+            /* 1st party cookie */
+            var WfirstParty = true; /* will enable first party cookies */
+
+            /*Activation et paramétrage fonctionnalité WAM2GAM */
+            var Wam2gamConf = {
+                token: 'Gi2z6jGZBNYt', // Token API Weborama fourni par Weborama pour 366
+                // Idcrm: <User’s IDCRM> , // A compléter avec l'ID CRM de l'utilisateur si disponible
+                cookieless: false, // default: false
+                useXdevice: true, // default: false
+            }; 
+
+            /*Activation du stockage des IDs universels first-id et Utiq */
+            var WextraIDsConfs = [ // type; array of objects
+                {
+                  name: 'firstId', // type: string, mandatory
+                },
+                {
+                  name: 'utiqId',
+                },
+            ];
+            window.Wvar = {};
+            if(typeof weboramaItemTag !== 'undefined'){
+                /* 1. Objet Json */
+                window.Wvar = weboramaItemTag;
+                weboramaItemTag.navigation = 'Web'; // Format:Texte, Signification: Web, webmobile, in-app, Exemple: 'webmobile'
+                if(
+                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) // user agent
+                    ||
+                    ('ontouchstart' in window || navigator.maxTouchPoints > 0) // has touch screen => mobile
+                ){
+                  weboramaItemTag.navigation = 'webmobile';
+                }
+            }
+            // trigger dans didomi
+            var allowtriggerWeborama = true;
+            function triggerWeborama() {
+                                if(allowtriggerWeborama){
+                                                                                        if(Didomi.getUserStatusForVendor(284)){
+                            allowtriggerWeborama = false;
+                                                        (function(){
+                                var w = document.createElement("script");
+                                w.type = "text/javascript";
+                                w.src = document.location.protocol + "//cstatic.weborama.fr/js/wam/customers/wamfactory_dpm.wildcard.min.js?rnd="+new Date().getTime();
+                                w.async = true;
+                                var body = document.getElementsByTagName('script')[0];
+                                body.parentNode.insertBefore(w,body);
+                            })();
+                        }
+                                    }
+            }
+        </script>
+                <!-- NOUVEAU TRACK GOOGLE 21/10/19 -->
+        <script type="text/javascript">
+            window.gdprAppliesGlobally=true;(function(){function a(e){if(!window.frames[e]){if(document.body&&document.body.firstChild){var t=document.body;var n=document.createElement("iframe");n.style.display="none";n.name=e;n.title=e;t.insertBefore(n,t.firstChild)}
+            else{setTimeout(function(){a(e)},5)}}}function e(n,r,o,c,s){function e(e,t,n,a){if(typeof n!=="function"){return}if(!window[r]){window[r]=[]}var i=false;if(s){i=s(e,t,n)}if(!i){window[r].push({command:e,parameter:t,callback:n,version:a})}}e.stub=true;function t(a){if(!window[n]||window[n].stub!==true){return}if(!a.data){return}
+            var i=typeof a.data==="string";var e;try{e=i?JSON.parse(a.data):a.data}catch(t){return}if(e[o]){var r=e[o];window[n](r.command,r.parameter,function(e,t){var n={};n[c]={returnValue:e,success:t,callId:r.callId};a.source.postMessage(i?JSON.stringify(n):n,"*")},r.version)}}
+            if(typeof window[n]!=="function"){window[n]=e;if(window.addEventListener){window.addEventListener("message",t,false)}else{window.attachEvent("onmessage",t)}}}e("__tcfapi","__tcfapiBuffer","__tcfapiCall","__tcfapiReturn");a("__tcfapiLocator");(function(e){
+            var t=document.createElement("script");t.id="spcloader";t.type="text/javascript";t.async=true;t.src="https://sdk.privacy-center.org/"+e+"/loader.js?target="+document.location.hostname;t.charset="utf-8";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(t,n)})("9d6c89bc-46dd-4bd2-8e7f-926ea9a52f69")})();
+        </script>
+        <script type="text/javascript">
+            window.Wvar.consent_366 = 0;
+                            console.log('didomi custom events');
+                        window.didomiOnReady = window.didomiOnReady || [];
+            window.didomiOnReady.push(function () {
+                                    console.log('didomiOnReady');
+                                // Get user status from the SDK
+                const userStatus = Didomi.getCurrentUserStatus();
+                // Piano Analytics
+                if(typeof pa != 'undefined'){
+                    pa.setConfigurations({
+                        // Basic configuration to send events
+                        site: 501001,
+                        collectDomain: "https://tbhqzmw.pa-cd.com",
+                    });
+                }
+                triggerPATracking(userStatus);
+            });
+
+            window.didomiEventListeners = window.didomiEventListeners || [];
+            window.didomiEventListeners.push({
+                event: 'consent.changed',
+                listener: function (context) {
+                                            console.log("didomi consent.changed");
+                                        // Get user status from the SDK
+                    const userStatus = Didomi.getCurrentUserStatus();
+                    
+                    triggerPATracking(userStatus,"no-consent");
+                }
+            });
+            function triggerPATracking(userStatus){
+                                    console.log('triggerPATracking');
+                    // AT Internet
+                    console.log(userStatus)
+                    console.log(userStatus['purposes']['audiencem-hJxaeGrR']['enabled']);
+                    console.log(userStatus['purposes']['audiencem-xedeU2gQ']['enabled']);
+                
+                if(userStatus.addtl_consent){
+                    if(userStatus['purposes']['audiencem-hJxaeGrR']['enabled'] || userStatus['purposes']['audiencem-xedeU2gQ']['enabled']){
+                        if(typeof pa != 'undefined'){
+                            pa.privacy.setMode('optin');
+                        }
+                        window.Wvar.consent_366 = 1;
+                                                    console.log("optin");
+                                            }else{
+                        if(typeof pa != 'undefined'){
+                            pa.privacy.setMode('optout');
+                        }
+                        window.Wvar.consent_366 = 0;
+                                                    console.log("optout");
+                                            }
+                }else{
+                    if(typeof pa != 'undefined'){
+                        pa.privacy.setMode('no-consent');
+                    }
+                    window.Wvar.consent_366 = 0;
+                                            console.log("no-consent");
+                                    }
+                triggerWeborama();
+                if(typeof pa != 'undefined'){
+                    pa.sendEvent(
+                        "page.display",
+                        {
+                                                    page: ""
+                        }
+                    );
+                }
+            }
+        </script>
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+        <link rel="shortcut icon" href="/images/icon/favicon.ico">
+
+            <title>            Appel d'offre | Avis publics sur France Marchés
+    </title>
+        
+            <meta name="description" content="            10 appels d'offres trouvés sur la requête. Abonnez-vous à l’alerte email de cette recherche!
+    ">
+        
+                        <link rel="canonical" href="https://www.francemarches.com/recherche">
+    
+                    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,600|Roboto+Condensed:300,400" rel="stylesheet" type="text/css">
+        <link type="text/css" rel="stylesheet" href="/css/font-basic.css">
+        <link type="text/css" rel="stylesheet" href="/css/font-social.css">
+        <link type="text/css" rel="stylesheet" href="/dist/css/front.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
+</head>
+<body class="">
+            <!-- Google Tag Manager (noscript) --> 
+            <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MV483X" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript> 
+        <!-- End Google Tag Manager (noscript) -->
+
+                    <script>!function(a,b,c,d,e,f){a.ddjskey=e;a.ddoptions=f||null;var m=b.createElement(c),n=b.getElementsByTagName(c)[0];m.async=1,m.src=d,n.parentNode.insertBefore(m,n)}(window,document,"script","https://js.datadome.co/tags.js", "A9D4C672A785EF4B70964873982D4A",{ 'ajaxListenerPath' : true, 'allowHtmlContentTypeOnCaptcha': true });</script>
+            
+        <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs>
+<symbol id="icon-pin" viewBox="0 0 32 32">
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M16.001 3.999c-2.475 0-4.849 0.983-6.6 2.734v0c-1.75 1.75-2.734 4.124-2.734 6.6 0 2.879 1.622 5.982 3.73 8.752 2.038 2.677 4.376 4.845 5.603 5.91 1.227-1.065 3.565-3.233 5.603-5.91 2.108-2.77 3.73-5.873 3.73-8.752 0-2.475-0.983-4.849-2.734-6.6v0c-1.75-1.75-4.124-2.734-6.6-2.734zM7.516 4.847c2.25-2.25 5.303-3.515 8.485-3.515s6.235 1.264 8.485 3.515c2.25 2.25 3.515 5.303 3.515 8.485 0 3.778-2.070 7.47-4.275 10.367-2.236 2.937-4.779 5.274-6.052 6.374-0.023 0.020-0.046 0.038-0.070 0.056-0.462 0.348-1.025 0.536-1.603 0.536s-1.141-0.188-1.603-0.536c-0.024-0.018-0.047-0.037-0.070-0.056-1.274-1.1-3.817-3.437-6.052-6.374-2.205-2.897-4.275-6.589-4.275-10.367 0-3.183 1.264-6.235 3.515-8.485z"></path>
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M10.667 13.333c0-2.946 2.388-5.333 5.333-5.333s5.333 2.388 5.333 5.333c0 2.946-2.388 5.333-5.333 5.333s-5.333-2.388-5.333-5.333zM16 10.666c-1.473 0-2.667 1.194-2.667 2.667s1.194 2.667 2.667 2.667c1.473 0 2.667-1.194 2.667-2.667s-1.194-2.667-2.667-2.667z"></path>
+</symbol>
+<symbol id="icon-calendar-2" viewBox="0 0 28 32">
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M8.667 1.333c0.736 0 1.333 0.597 1.333 1.333v1.333h8v-1.333c0-0.736 0.597-1.333 1.333-1.333s1.333 0.597 1.333 1.333v1.333h2.667c2.209 0 4 1.791 4 4v18.667c0 2.209-1.791 4-4 4h-18.667c-2.209 0-4-1.791-4-4v-18.667c0-2.209 1.791-4 4-4h2.667v-1.333c0-0.736 0.597-1.333 1.333-1.333zM7.334 6.666h-2.667c-0.736 0-1.333 0.597-1.333 1.333v4h21.333v-4c0-0.736-0.597-1.333-1.333-1.333h-2.667v1.333c0 0.736-0.597 1.333-1.333 1.333s-1.333-0.597-1.333-1.333v-1.333h-8v1.333c0 0.736-0.597 1.333-1.333 1.333s-1.333-0.597-1.333-1.333v-1.333zM24.667 14.666h-21.333v12c0 0.736 0.597 1.333 1.333 1.333h18.667c0.736 0 1.333-0.597 1.333-1.333v-12z"></path>
+</symbol>
+<symbol id="icon-calendar-clock" viewBox="0 0 32 32">
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M10.667 1.336c0.735 0 1.33 0.595 1.33 1.33v1.337h8.007v-1.337c0-0.735 0.595-1.33 1.33-1.33s1.33 0.595 1.33 1.33v1.337h2.67c1.060 0 2.076 0.421 2.826 1.171s1.171 1.766 1.171 2.826v2c0 0.735-0.596 1.33-1.33 1.33s-1.33-0.595-1.33-1.33v-2c0-0.354-0.141-0.694-0.392-0.945s-0.591-0.391-0.945-0.391h-2.67v1.337c0 0.735-0.596 1.33-1.33 1.33s-1.33-0.595-1.33-1.33v-1.337h-8.007v1.337c0 0.735-0.595 1.33-1.33 1.33s-1.33-0.595-1.33-1.33v-1.337h-2.67c-0.354 0-0.694 0.141-0.945 0.391s-0.391 0.591-0.391 0.945v4.003h5.337c0.735 0 1.33 0.595 1.33 1.33s-0.595 1.33-1.33 1.33h-5.337v12.003c0 0.354 0.141 0.694 0.391 0.945s0.591 0.392 0.945 0.392h4.667c0.735 0 1.33 0.595 1.33 1.33s-0.595 1.33-1.33 1.33h-4.667c-1.060 0-2.076-0.421-2.826-1.171s-1.171-1.766-1.171-2.826v-18.667c0-1.060 0.421-2.077 1.171-2.826s1.766-1.171 2.826-1.171h2.67v-1.337c0-0.735 0.595-1.33 1.33-1.33z"></path>
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M21.333 14.663c-3.684 0-6.67 2.986-6.67 6.67s2.986 6.67 6.67 6.67c3.684 0 6.67-2.986 6.67-6.67s-2.986-6.67-6.67-6.67zM12.003 21.333c0-5.153 4.177-9.33 9.33-9.33s9.33 4.177 9.33 9.33c0 5.153-4.177 9.33-9.33 9.33s-9.33-4.177-9.33-9.33zM21.333 17.336c0.735 0 1.33 0.595 1.33 1.33v2.427l1.501 1.201c0.574 0.459 0.667 1.296 0.208 1.869s-1.296 0.667-1.869 0.208l-2-1.6c-0.316-0.252-0.499-0.635-0.499-1.039v-3.067c0-0.735 0.595-1.33 1.33-1.33z"></path>
+</symbol>
+<symbol id="icon-ribon" viewBox="0 0 26 32">
+<path fill="#cc1d00" style="fill: var(--color2, #cc1d00)" d="M4.8 3.2c-0.424 0-0.831 0.169-1.131 0.469l-0 0c-0.3 0.3-0.469 0.707-0.469 1.131v22.843l8.806-5.032c0.492-0.281 1.096-0.281 1.588 0l8.806 5.032v-22.843c0-0.424-0.169-0.831-0.469-1.131v0c-0.3-0.3-0.707-0.469-1.131-0.469h-16zM1.406 1.406c0.9-0.9 2.121-1.406 3.394-1.406h16c1.273 0 2.494 0.506 3.394 1.406s1.406 2.121 1.406 3.394v25.6c0 0.57-0.304 1.098-0.797 1.384s-1.102 0.288-1.597 0.005l-10.406-5.946-10.406 5.946c-0.495 0.283-1.104 0.281-1.597-0.005s-0.797-0.813-0.797-1.384v-25.6c0-1.273 0.506-2.494 1.406-3.394 0 0 0-0 0-0z"></path>
+</symbol>
+<symbol id="icon-info-alt" viewBox="0 0 32 32">
+<path fill="#655a71" style="fill: var(--color1, #655a71)" d="M16 2.91c-7.23 0-13.091 5.861-13.091 13.091s5.861 13.091 13.091 13.091c7.23 0 13.091-5.861 13.091-13.091s-5.861-13.091-13.091-13.091zM0.001 16.001c0-8.837 7.163-16 16-16s16 7.163 16 16c0 8.836-7.164 16-16 16s-16-7.164-16-16zM14.546 10.183c0-0.803 0.651-1.454 1.455-1.454h0.015c0.803 0 1.455 0.651 1.455 1.454s-0.651 1.455-1.455 1.455h-0.015c-0.803 0-1.454-0.651-1.454-1.455zM16 14.546c0.803 0 1.455 0.651 1.455 1.455v5.818c0 0.803-0.651 1.455-1.455 1.455s-1.454-0.651-1.454-1.455v-5.818c0-0.803 0.651-1.454 1.454-1.454z"></path>
+</symbol>
+<symbol id="icon-valid_circle" viewBox="0 0 32 32">
+<path d="M31.5 16c0-8.5-7-15.5-15.5-15.5-8.563 0-15.5 7-15.5 15.5 0 8.563 6.938 15.5 15.5 15.5 8.5 0 15.5-6.937 15.5-15.5zM14.188 24.25c-0.375 0.375-1.063 0.375-1.438 0l-6.5-6.5c-0.375-0.375-0.375-1.063 0-1.438l1.438-1.375c0.375-0.438 1-0.438 1.375 0l4.438 4.375 9.375-9.375c0.375-0.438 1-0.438 1.375 0l1.438 1.375c0.375 0.375 0.375 1.063 0 1.438l-11.5 11.5z"></path>
+</symbol>
+<symbol id="icon-exclamation" viewBox="0 0 11 32">
+<path d="M10.476 26.476c0-2.619-2.143-4.762-4.762-4.762-2.679 0-4.762 2.143-4.762 4.762 0 2.679 2.083 4.762 4.762 4.762 2.619 0 4.762-2.083 4.762-4.762zM1.488 2.31l0.774 16.19c0.060 0.714 0.714 1.31 1.429 1.31h3.988c0.714 0 1.369-0.595 1.429-1.31l0.774-16.19c0.060-0.833-0.595-1.548-1.429-1.548h-5.536c-0.833 0-1.488 0.714-1.429 1.548z"></path>
+</symbol>
+<symbol id="icon-warning" viewBox="0 0 37 32">
+<path d="M35.393 27.012l-14.286-24.822c-1.072-1.845-3.869-1.905-4.941 0l-14.286 24.822c-1.071 1.845 0.298 4.226 2.5 4.226h28.512c2.202 0 3.572-2.321 2.5-4.226zM18.667 21.833c1.488 0 2.738 1.25 2.738 2.738 0 1.548-1.25 2.738-2.738 2.738-1.548 0-2.738-1.191-2.738-2.738 0-1.488 1.191-2.738 2.738-2.738zM16.048 12.012c-0.059-0.417 0.298-0.774 0.714-0.774h3.75c0.417 0 0.774 0.357 0.714 0.774l-0.417 8.095c-0.059 0.417-0.357 0.655-0.714 0.655h-2.917c-0.357 0-0.655-0.238-0.714-0.655l-0.417-8.095z"></path>
+</symbol>
+<symbol id="icon-paperplane" viewBox="0 0 32 32">
+<path d="M27.714 0.417l-24.762 14.286c-2.083 1.191-1.905 4.226 0.298 5.119l6.845 2.798v5c0 2.798 3.512 3.929 5.119 1.726l2.619-3.512 6.667 2.738c0.357 0.179 0.714 0.238 1.071 0.238 0.476 0 0.952-0.119 1.429-0.357 0.774-0.476 1.25-1.191 1.428-2.083l3.512-23.036c0.357-2.381-2.202-4.107-4.226-2.917zM12.952 27.619v-3.81l2.143 0.893-2.143 2.917zM25.571 25.952l-9.167-3.81 8.393-12.024c0.595-0.952-0.595-2.024-1.429-1.25l-12.619 10.952-6.369-2.679 24.762-14.286-3.572 23.095z"></path>
+</symbol>
+<symbol id="icon-eye" viewBox="0 0 48 32">
+<path d="M47.667 14.833c-4.5-8.833-13.5-14.833-23.667-14.833-10.25 0-19.25 6-23.75 14.833-0.167 0.333-0.25 0.75-0.25 1.167 0 0.5 0.083 0.917 0.25 1.25 4.5 8.833 13.5 14.75 23.75 14.75 10.167 0 19.167-5.917 23.667-14.75 0.167-0.333 0.25-0.75 0.25-1.167 0-0.5-0.083-0.917-0.25-1.25zM24 28c-6.667 0-12-5.333-12-12 0-6.583 5.333-12 12-12 6.583 0 12 5.417 12 12v0.083c0 6.583-5.417 12-12 12v-0.083zM24 8c-0.75 0.083-1.5 0.167-2.167 0.333 0.5 0.667 0.75 1.5 0.75 2.417 0 2.167-1.75 3.917-3.917 3.917-0.917 0-1.75-0.25-2.417-0.75-0.167 0.667-0.25 1.417-0.25 2.083 0 4.417 3.583 8 8 8s8-3.583 8-8-3.583-7.917-8-7.917v-0.083z"></path>
+</symbol>
+<symbol id="icon-trash" viewBox="0 0 28 32">
+<path d="M16.75 26h1.5c0.375 0 0.75-0.312 0.75-0.75v-13.5c0-0.375-0.375-0.75-0.75-0.75h-1.5c-0.438 0-0.75 0.375-0.75 0.75v13.5c0 0.438 0.313 0.75 0.75 0.75zM27 5h-5.188l-2.125-3.5c-0.5-0.875-1.5-1.5-2.563-1.5h-6.313c-1.063 0-2.063 0.625-2.563 1.5l-2.125 3.5h-5.125c-0.563 0-1 0.5-1 1v1c0 0.563 0.438 1 1 1h1v21c0 1.688 1.313 3 3 3h18c1.625 0 3-1.312 3-3v-21h1c0.5 0 1-0.438 1-1v-1c0-0.5-0.5-1-1-1zM10.688 3.188c0.063-0.063 0.188-0.188 0.313-0.188 0 0 0 0 0.063 0h5.875c0.125 0 0.25 0.125 0.313 0.188l1.063 1.813h-8.688l1.063-1.813zM23 29h-18v-21h18v21zM9.75 26h1.5c0.375 0 0.75-0.312 0.75-0.75v-13.5c0-0.375-0.375-0.75-0.75-0.75h-1.5c-0.438 0-0.75 0.375-0.75 0.75v13.5c0 0.438 0.313 0.75 0.75 0.75z"></path>
+</symbol>
+<symbol id="icon-pen" viewBox="0 0 32 32">
+<path d="M31.118 8.412c1.118-1.118 1.118-2.941 0-4l-3.529-3.529c-1.059-1.118-2.882-1.118-4 0l-2.706 2.706c-0.235 0.235-0.235 0.706 0 1l6.529 6.529c0.294 0.235 0.765 0.235 1 0l2.706-2.706zM18.588 5.882l-15.471 15.471-1.235 7.118c-0.176 1 0.647 1.824 1.647 1.647l7.118-1.235 15.471-15.471c0.294-0.235 0.294-0.706 0-1l-6.529-6.529c-0.294-0.235-0.765-0.235-1 0zM9.176 20c-0.353-0.294-0.353-0.824 0-1.118l9.059-9.059c0.294-0.353 0.824-0.353 1.118 0 0.353 0.294 0.353 0.824 0 1.118l-9.059 9.059c-0.294 0.353-0.824 0.353-1.118 0zM7.059 24.941h2.824v2.176l-3.824 0.647-1.824-1.824 0.647-3.823h2.176v2.824z"></path>
+</symbol>
+<symbol id="icon-info" viewBox="0 0 30 32">
+<path d="M15.059 1.412c-8.059 0-14.588 6.588-14.588 14.588 0 8.059 6.529 14.588 14.588 14.588 8 0 14.588-6.529 14.588-14.588 0-8-6.588-14.588-14.588-14.588zM15.059 7.882c1.353 0 2.471 1.118 2.471 2.471 0 1.412-1.118 2.471-2.471 2.471-1.412 0-2.471-1.059-2.471-2.471 0-1.353 1.059-2.471 2.471-2.471zM18.353 22.824c0 0.412-0.353 0.706-0.706 0.706h-5.176c-0.412 0-0.706-0.294-0.706-0.706v-1.412c0-0.353 0.294-0.706 0.706-0.706h0.706v-3.765h-0.706c-0.412 0-0.706-0.294-0.706-0.706v-1.412c0-0.353 0.294-0.706 0.706-0.706h3.765c0.353 0 0.706 0.353 0.706 0.706v5.882h0.706c0.353 0 0.706 0.353 0.706 0.706v1.412z"></path>
+</symbol>
+<symbol id="icon-cross" viewBox="0 0 32 32">
+<path d="M22.833 16l8.333-8.333c1.083-1 1.083-2.667 0-3.667l-1.833-1.833c-1-1.083-2.667-1.083-3.667 0l-8.333 8.333-8.417-8.333c-1-1.083-2.667-1.083-3.667 0l-1.833 1.833c-1.083 1-1.083 2.667 0 3.667l8.333 8.333-8.333 8.417c-1.083 1-1.083 2.667 0 3.667l1.833 1.834c1 1.083 2.667 1.083 3.667 0l8.417-8.333 8.333 8.333c1 1.083 2.667 1.083 3.667 0l1.833-1.834c1.083-1 1.083-2.667 0-3.667l-8.333-8.417z"></path>
+</symbol>
+<symbol id="icon-calendar" viewBox="0 0 28 32">
+<path d="M25 4h-3v-3.25c0-0.375-0.375-0.75-0.75-0.75h-2.5c-0.438 0-0.75 0.375-0.75 0.75v3.25h-8v-3.25c0-0.375-0.375-0.75-0.75-0.75h-2.5c-0.438 0-0.75 0.375-0.75 0.75v3.25h-3c-1.688 0-3 1.375-3 3v22c0 1.688 1.313 3 3 3h22c1.625 0 3-1.312 3-3v-22c0-1.625-1.375-3-3-3zM24.625 29h-21.25c-0.25 0-0.375-0.125-0.375-0.375v-18.625h22v18.625c0 0.25-0.188 0.375-0.375 0.375z"></path>
+</symbol>
+</defs>
+</svg>
+    
+        
+    	<div class="header">
+	<div class="header__conteneur inner-lg">
+		<div class="relative">
+			<div id="headerOpenMenu" class="headerMenuBurger js-headerOpenMenu">
+				<span class="headerMenuBurger__icon"></span>
+				<span class="name">Menu</span>
+			</div>
+			<section id="contentMenu" class="header__middleMenu js-header__middleMenu">
+				<div class="background">
+					<nav class="header__navigation">
+						<ul>
+							<li class="element">
+								<a href="/apropos" class="header__navigation-link ">
+									<span class="num">01</span> Les sources d'appels d'offres
+								</a>
+							</li>
+							<li class="element">
+								<a href="/offre" class="header__navigation-link ">
+									<span class="num">02</span> Service d'alertes
+								</a>
+							</li>
+							<li class="element">
+								<a href="/actualites" class="header__navigation-link ">
+									<span class="num">03</span> Actualités des marchés publics
+								</a>
+							</li>
+
+							<li class="element">
+								<a href="/fiches" class="header__navigation-link ">
+									<span class="num">04</span> Fiches pratiques
+								</a>
+							</li>
+							<li class="element">
+								<a href="/ccag" class="header__navigation-link ">
+									<span class="num">05</span> Fiches sur le CCAG
+								</a>
+							</li>
+							<li class="element">
+								<a href="/quizz" class="header__navigation-link ">
+									<span class="num">06</span> FAQ
+								</a>
+							</li>
+						</ul>
+					</nav>
+				</div>
+			</section>
+			<div class="header__logo">
+									<a href="/">
+						<img
+							height="56"
+							src="/images/logo-FranceMarches.svg"
+							alt="France Marchés : Tous les jours, tous les appels d'offres et marchés publics"
+						/>
+					</a>
+							</div>
+			<div class="contentHeaderUser">
+				
+								
+								
+								
+													<span id="menuUser" class="content-button !js-open-popup-login">
+						<span class="border-radius">
+							<span class="open picto basic-pictohead"></span>
+							<span class="close picto basic-pictocross"></span>
+						</span>
+						<span class="name">Connexion</span>
+					</span>
+							</div>
+		</div><!-- header__conteneur -->
+	</div>
+</div><!-- header -->
+        <main class="search">
+        <section id="contentFormSearch" class="formSearch__container">
+    <div class="inner">
+        <form id="search" name="search" action="/recherche" class="formSearch ">
+            <span class="formSearch__picto picto basic-pictosearch"></span>
+            <div class="formSearch__contentFields ui-widget">
+                <div class="formSearch__contentField js-search-autocomplete-container">
+                    <input type="text" name="q" id="q" value="structure essais" placeholder="Rechercher un appel d'offres public ..." class="js-search-keyword js-search-autocomplete-input" data-targetAjax="/autocomplete" autocomplete="off" />
+                    <ul class="formSearch__autocomplete-result js-search-autocomplete-result js-hide"></ul>
+                </div>
+            </div>
+                        <button class="formSearch__button" type="submit">OK</button>
+        </form>
+        <div class="formSearch__infos">
+            <span class='infoBullePicto infoBullePicto--right'>
+                <svg class="infoBullePicto__icon icon icon-info-alt"><use xlink:href="#icon-info-alt"></use></svg>
+                <span class="contentInfoBulle">
+                    <span class="infoBulle">
+                        <span class="picto"></span>
+                        <span class="texte texte--small">Opérateur <b>OU</b> : <b>au moins un des mots</b> ou groupe de mots dans l’avis<br/>
+<br/>
+Opérateur <b>ET</b> : uniquement les avis contenant <b>tous les mots</b> clefs<br/>
+<br/>
+Guillemets "<b>mot</b>" : uniquement les avis contenant <b>l’expression exacte</b> entre guillemets<br/>
+<br/>
+Parenthèses <b>( )</b> : pour <b>combiner</b> les commandes<br/>
+<br/>
+Exclure : mot1 <b>EXCLURE</b> [mot2] : tous les avis qui contiennent mot1 mais pas mot2<br/>
+<br/>
+Opérateur <b>*</b> : tous les avis contenant des mots <b>commençant par le préfixe</b> indiqué : mot*</span>
+                    </span>
+                </span>
+            </span>
+            <span>Aide à la recherche</span>
+        </div>
+    </div><!-- inner -->
+</section>
+        
+        <div class="cadreBleu ombrage">
+
+            <div class="inner-lg">
+                <div class="breadcrumb">
+						<a class="breadcrumb__item --link" href="/">Accueil</a>
+			<span class="breadcrumb__item">/</span>
+								<span class="breadcrumb__item">Appels d’offres</span>
+			</div> 
+
+            </div>
+                            <div class="inner">
+    <div class="sort__container">
+    <div class="sort__container-fleft">
+        <div class="contentButtonOpenFiltre">
+            <button type="button" class="btnFlat js-mobile-open-filtres">
+                <svg class="svgStroke" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13.3332 4.66699H7.33317M9.33317 11.3337H3.33317M9.33317 11.3337C9.33317 12.4382 10.2286 13.3337 11.3332 13.3337C12.4377 13.3337 13.3332 12.4382 13.3332 11.3337C13.3332 10.2291 12.4377 9.33366 11.3332 9.33366C10.2286 9.33366 9.33317 10.2291 9.33317 11.3337ZM6.6665 4.66699C6.6665 5.77156 5.77107 6.66699 4.6665 6.66699C3.56193 6.66699 2.6665 5.77156 2.6665 4.66699C2.6665 3.56242 3.56193 2.66699 4.6665 2.66699C5.77107 2.66699 6.6665 3.56242 6.6665 4.66699Z" stroke="#CC1D00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Filtrer <span class=""></span>
+            </button>
+        </div>
+    </div>
+    </div>
+
+            <div class="messageBlock">
+            <div class="messageCloture">
+                                <a href="/recherche"><span class="picto basic-pictodelete"></span></a>
+                <p>
+                    <span class="messageCloture__titre">Votre recherche "structure essais" ne ramène aucun résultat</span>
+                    Posez une alerte gratuite
+                                        pour être informé(e) dès qu'un marché correspondant à ces critères sera publié ou relancez une recherche.
+                                    </p>
+                            </div>
+        </div>
+    </div>
+
+                    </div>
+
+            </main>
+
+    
+            <div id="info-bottom-calltoaction-abonnement" class="info-bottom-calltoaction is-abonnement shadow"
+             data-name="modal-is-abonnement">
+            <span id="close-modal-2" class="close basic-pictocross"></span>
+            <div class="background">
+                <div class="conteneur">
+                    <div class="content-text">
+                        <h2 class="titre">Alertes France Marchés</h2>
+                        <div class="texte">
+                            <p>Plus de 108 000 abonnés ont mis en place gratuitement des alertes pour détecter des marchés publics.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="button-content">
+                    <a target="_blank" href="https://www.francemarches.com/offre"
+                       class="buttonOrange button">Créer un compte (gratuit)</a>
+                </div>
+            </div>
+        </div><!-- info-bottom-calltoaction -->
+        
+    <div id="info-bottom-calltoaction-livreblanc"
+         class="info-bottom-calltoaction is-livreblanc info-bottom-livreblanc shadow" data-name="modal-is-livreblanc">
+        <span id="close-modal-1" class="close basic-pictocross"></span>
+        <div class="background fond-bleu">
+            <div class="conteneur ">
+                <div class="content-image">
+                    <img src="/images/livreblanc2014.png" alt="">
+                </div>
+                <div class="content-text">
+                    <h2 class="titre"> Chorus Pro</h2>
+                    <div class="texte">
+                        <p>Le recours obligatoire à Chorus Pro confirmé par la justice administrative.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="button-content">
+                <a target="_blank" href="https://www.francemarches.com/actualites/2025/choruspro-memoire-sanction"
+                   class="buttonOrange bleu button">Lire la revue de presse France Marchés</a>
+            </div>
+        </div>
+    </div><!-- info-bottom-calltoaction -->
+
+    <footer class="footer">
+    <h2 class="titreHidden">Informations complémentaires du portail d'appels d'offres publics France Marchés</h2>
+    <div class="footerTop">
+        <div class="relative inner">
+            <div class="clearfix border">
+                <div class="newsletterFooter">
+    <h3 class="newsletterFooter__title">
+        Abonnement Newsletter France Marchés
+    </h3>
+    <div class="newsletterFooter__subtitle">
+        Suivez chaque mois les actualités, analyses &amp; chiffres clés dans les marchés publics
+    </div>
+
+    <div class="newsletterFooter__form">
+        <script>
+    function gtmSubmitNewsletter(){
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+            'event': 'abonnementNewsletter.FranceMarches',
+        });
+    }
+</script>
+<form name="newsletter" method="post" action="/newsletter/add" class="newsletterSub__form js-submit-footer-newsletter" onsubmit="gtmSubmitNewsletter();">
+    <div class="contentFields">
+        <div class="contentField js-animateLabel">
+            <div class="form-group"><label for="newsletter_email" class="required">Saisissez votre adresse email...</label><input type="email" id="newsletter_email" name="newsletter[email]" required="required" length="255" class="form-control" /></div>
+        </div>
+    </div>
+    <button class="button button--picto buttonOrange newsletterSub__submit inscriptionButton" type="submit"><span class="text">Inscription</span><span class="picto basic-pictoarrow-right"></span></button>
+<input type="hidden" id="newsletter__token" name="newsletter[_token]" value="a13.wqRKFzHAUHBjkvsniNCETkAugxGSDhNpTpv3YMQpjg0.he0jOgKmBBQGwKJ9y5zqegMf8CXqXScvK_GlM_ds_Fqg5ytNe7M7MxLHrg" /></form>
+
+
+        <div class="newsletterSub__confirm js-confirm-footer-newsletter js-hide">
+            <svg class="newsletterSub__confirm-icon icon icon-valid_circle"><use href="#icon-valid_circle"></use></svg>
+            <div class="newsletterSub__confirm-text">Votre inscription à la newsletter France Marchés a bien été prise en compte. Merci.</div>
+        </div>
+
+        <div class="newsletterFooter__form__text">
+            Cette newsletter reprend les points à retenir du mois pour vous permettre d’assurer votre veille. Votre email ne sera ni revendu ni exploité pour des opérations commerciales.
+        </div>
+    </div>
+</div>
+            </div>
+            <div class="contentLinkForOffres">
+                                    <div class="contentLinkForOffres__block">
+                        <h3 class="footer__titre">Appels d'offres publics en région</h3>
+<ul class="linkOffres clearfix">
+            <li class="linkOffres__item">
+            <a href="/appels-offre/nouvelle-aquitaine" class="linkOffres__link">Nouvelle Aquitaine</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/auvergne-rhone-alpes" class="linkOffres__link">Auvergne-Rhône-Alpes</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/normandie" class="linkOffres__link">Normandie</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/bourgogne-franche-comte" class="linkOffres__link">Bourgogne-Franche-Comté</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/bretagne" class="linkOffres__link">Bretagne</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/val-de-loire" class="linkOffres__link">Centre - Val de Loire</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/corse" class="linkOffres__link">Corse</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/ile-de-france" class="linkOffres__link">Île-de-France</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/occitanie" class="linkOffres__link">Occitanie</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/hauts-de-france" class="linkOffres__link">Hauts-de-France</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/pays-de-la-loire" class="linkOffres__link">Pays de la Loire</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/provence-alpes-cote-d-azur" class="linkOffres__link">Provence-Alpes-Côte d&#039;Azur</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/grand-est" class="linkOffres__link">Grand-Est</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/outre-mer" class="linkOffres__link">Outre-mer</a>
+        </li>
+    </ul>
+
+
+                    </div>
+                    <div class="contentLinkForOffres__block">
+                        <h3 class="footer__titre">Appels d'offres publics par thématique</h3>
+<ul class="linkOffres clearfix">
+            <li class="linkOffres__item">
+            <a href="/appels-offre/assurance" class="linkOffres__link">Assurance</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/batiment-btp" class="linkOffres__link">Bâtiment/BTP</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/communication" class="linkOffres__link">Communication</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/conseil" class="linkOffres__link">Conseil</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/construction" class="linkOffres__link">Construction</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/entretien" class="linkOffres__link">Entretien</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/eolien" class="linkOffres__link">Eolien</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/formation" class="linkOffres__link">Formation</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/gardiennage" class="linkOffres__link">Gardiennage</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/graphisme" class="linkOffres__link">Graphisme</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/sante" class="linkOffres__link">Santé</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/informatique" class="linkOffres__link">Informatique</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/internet-web" class="linkOffres__link">Internet/Web</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/nettoyage" class="linkOffres__link">Nettoyage</a>
+        </li>
+            <li class="linkOffres__item">
+            <a href="/appels-offre/photovoltaique" class="linkOffres__link">Photovoltaïque</a>
+        </li>
+    </ul>
+
+
+                    </div>
+                            </div>
+        </div>
+    </div>
+    <div class="footerBottom">
+        <div class="inner">
+            <div class="footerBottom__container">
+                <div class="clearfix">
+                    <div class="fleft">
+                        <span class="footerBottom__copyright">©2026 France marchés, conçu par Sooyoos, Redpoint et Ixcreo</span>
+                    </div>
+                    <ul class="fright">
+                        <li class="footerBottom__item">
+                            <a href="/fiches/lexique" class="footerBottom__link">Lexique</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/aide" class="footerBottom__link">Aide</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/faq" class="footerBottom__link">FAQ</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/cgu" class="footerBottom__link">CGU</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/politique-cookies" class="footerBottom__link">Politique de confidentialité</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/mentions" class="footerBottom__link">Mentions légales</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/credits" class="footerBottom__link">Crédits</a>
+                        </li>
+                        <li class="footerBottom__item">
+                            <a href="/contact" class="footerBottom__link">Contact</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+
+    	
+<section id="contentLoginRegistration" class="popinRegisterContainer isFixedElement">
+    <h2 class="titreHidden">Compte Abonné France Marchés</h2>
+
+    <div class="popinRegister inner">
+        <div class="popinRegisterInner">
+            <div class="popinRegister__col popinRegister__colSubs">
+                <img src="/images/popinRegister_subscribers.png" alt="99 500 abonnés" class="popinRegister__colSubs__img">
+                <div class="popinRegister__colSubs__title">
+                    207 406 abonnés
+                </div>
+                <div class="popinRegister__colSubs__subtitle">
+                    Surveillent leurs marchés publics avec France Marchés
+                </div>
+            </div>
+
+            <div class="popinRegister__col popinRegister__colForm">
+                <div class="popinRegister__colForm__title">
+                    Se connecter
+                </div>
+
+                <form action="/login" class="popinRegister__colForm__form" method="post" id="login_form">
+                    
+                    <div class="popinRegister__colForm__form__field js-animateLabel">
+                        <label for="popinRegister_login_input" class="popinRegister__colForm__form__field__label">
+                            Email *
+                        </label>
+                        <input id="popinRegister_login_input" type="text" name="email" autocomplete="username" required="required" class="popinRegister__colForm__form__field__input">
+                    </div>
+
+                    <div class="popinRegister__colForm__form__field js-animateLabel">
+                        <label for="popinRegister_password" class="popinRegister__colForm__form__field__label">
+                            Mot de passe *
+                        </label>
+                        <input id="popinRegister_password" type="password" name="password" autocomplete="current-password" required="required" class="popinRegister__colForm__form__field__input">
+                    </div>
+
+                    <div class="popinRegister__colForm__form__rememberMe">
+                        <input type="checkbox" id="rememberMe" name="_remember_me" checked>
+                        <label for="rememberMe">
+                            Se souvenir de moi
+                        </label>
+                    </div>
+
+                    <input type="hidden" name="action" value="users/login">
+                    <input id="popinafterlogin" type="hidden" name="popin" value="{popin}">
+                    <button type="submit" class="popinRegister__button button">
+                        Connexion
+                    </button>
+
+                    <a class="popinRegister__forgotPassword" href="/request-password">
+                        Mot de passe oublié
+                    </a>
+                    <input type="hidden" name="_csrf_token" value="69bff6cc2133e5b.rklm-opkjN0caa36A0wm9sOppJoZ6x-sn_F5D0GkXeo._TlVyd8h36RbE5vKZgRtmojmkvsgs1yZ_sQrZhHlM7D_EVSW6CrWunkQmQ">
+                </form>
+
+                <div class="popinRegister__colForm__hr"></div>
+
+                <div class="popinRegister__colForm__title">
+                    Aucun compte ?
+                </div>
+
+                <a href="/register" class="popinRegister__button button" id="sign_in">
+                    Créer mon compte
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+    <div id="overlay"></div>
+    <div id="popup" class="popup"></div>
+    
+                <div class="popup js-popup js-popup-login">
+    <div class="contentPopup contentPopup__login">
+        <div class="popup__header">
+            <p>
+                Connexion
+            </p> 
+            <span class="js-popup-close close basic-pictocross"></span>
+        </div>
+        <div class="content">
+            <form action="/login" method="post" class="formInscription">
+    <input type="hidden" name="_target_path" value=""/>
+            <fieldset class="clearfix">
+        <legend>Indiquez vos identifiants</legend>
+        <ul class="contentFields">
+            <li>
+                <div class="contentField animateLabel js-animateLabel">
+                    <label for="login_input">Email</label>
+                    <input id="login_input" type="text" name="email" autocomplete="username" required="required" class="" />
+                </div>
+            </li>
+            <li>
+                <div class="contentField animateLabel js-animateLabel">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" name="password" value="" id="password" autocomplete="current-password" required="required" class="" />
+                </div>
+            </li>
+            <li class="form__footerPassword">
+                <input type="checkbox" name="_remember_me" id="rememberMeLogin" checked />
+                <label for="rememberMeLogin">Se souvenir de moi</label>
+                <a class="form__forgotPassword js-open-popup-forgot-password" href="#popinForgotPassword" >
+                    Mot de passe oublié
+                </a>
+            </li>
+        </ul>
+    </fieldset><!-- clearfix -->
+    <div class="form__footer">
+        <button type="submit" class="form__footer-button button buttonOrange">Me connecter</button>
+        <div class="form__footer-text">
+            Pas encore de compte - 
+                            <a href="#popinRegister" class="js-open-popup-register">créer mon compte</a>
+                    </div>
+    </div>
+    <input type="hidden" name="_csrf_token" value="d58ae526b37e4b12ab842ac6b9ac.W7E86MdhNN3t-VdytewL1DJ4H6oRxQ4vX3WpCBH3-CI.CMEP25IkZ6Sqg2FC0KRAuHk3KcsonU0aPkD7YUG2lngK6Q6EpS9uuoiAYw">
+</form>
+        </div>
+    </div><!-- contentPopup -->
+</div>
+        <div class="popup js-popup js-popup-register">
+	<div class="contentPopup contentPopup__register">
+	    <div class="popup__header">
+	        <p>
+	            Création de compte
+	        </p> 
+	        <span class="js-popup-close close basic-pictocross"></span>
+	    </div>
+	    <div class="content">
+	    				<script>
+    window.gtmRegister = function(){
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+        'event': 'abonnementEtape1.FranceMarches',
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const typeSelect = document.querySelector('#register_firmFunction');
+        const autreField = document.querySelector('#autre-field');
+        const autreInput = document.querySelector('#register_firmFunctionOther');
+
+        function toggleAutreField() {
+            if (typeSelect.value === 'autre') {
+                autreField.style.display = 'block';
+                autreInput.setAttribute('required', 'required');
+            } else {
+                autreField.style.display = 'none';
+                autreInput.removeAttribute('required');
+                autreInput.value = '';
+            }
+        }
+
+        toggleAutreField();
+
+        typeSelect.addEventListener('change', toggleAutreField);
+    });
+
+</script>
+
+<form name="register" method="post" action="/form-register" id="creationCompte" class="formInscription js-submit-register">
+    <div class="js-hide js-register-alert">
+        <div class="alert alert-info">
+            <svg class="alert__icon icon icon-exclamation"><use xlink:href="#icon-exclamation"></use></svg>
+            <div class="text">
+                Votre compte a été créé mais <strong>n’est pas encore activé.</strong>
+            </div>
+        </div>
+
+                    <p>
+                Pour l’activer, suivez les étapes ci-dessous : 
+                <br>
+                <br>
+                1. Validez votre compte en cliquant sur le lien de l’email que venons de vous envoyer. 
+                                <br>
+                2. Une fois votre email validé,
+                <a 
+                    href="javascript:void(0);"
+                    onClick="document.location = document.location.href;"
+                    class="link__orange" 
+                >
+                    rechargez la page
+                </a>
+            </p>
+         
+    </div>
+    <div class="js-register-hide-on-success">
+        
+                <input type="hidden" id="register_alertId" name="register[alertId]" class="js-populate-alertId" />
+        <fieldset>
+            <legend>Identifiants</legend>
+            <ul class="contentFields">
+                <li>
+                    <div class="contentField animateLabel js-animateLabel required">
+                        <label for="register_email" class="required">Email</label>
+                        <input type="text" id="register_email" name="register[email]" required="required" class="field required email input_text js-valid-email js-register-email" />
+                    </div>
+                    <div class="errorSubMsg js-email-invalid js-hide">Format d&#039;email incorrect</div>
+                                    </li>
+                <li>
+                    <div class="contentField animateLabel js-animateLabel required">
+                        <label for="register_plainPassword_first" class="required">Mot de passe</label>
+                        <input type="password" id="register_plainPassword_first" name="register[plainPassword][first]" required="required" class="field required input_text js-new-password-1" autocomplete="new-password" />
+                    </div>
+                    <div class="legendMsg">8 caractères, un chiffre, une majuscule</div>
+                    <div class="errorSubMsg js-invalid-password js-hide">Le format n’est respecte pas 8 caractères, un chiffre, une majuscule</div>
+                </li>
+                <li>
+                    <div class="contentField animateLabel js-animateLabel required">
+                        <label for="register_plainPassword_second" class="required">Confirmation de passe</label>
+                        <input type="password" id="register_plainPassword_second" name="register[plainPassword][second]" required="required" class="field required input_text js-new-password-2" autocomplete="new-password" />
+                    </div>
+                    <div class="errorSubMsg js-invalid-password-confirm js-hide">Les 2 mots de passe ne sont pas identiques</div>
+                                                                            </li>
+            </ul>
+        </fieldset>
+        <fieldset>
+            <legend>Votre entreprise</legend>
+
+            <ul class="contentFields">
+                <li>
+                    <div class="contentField animateLabel js-animateLabel required">
+                        <label class="" for="register_firmFunction">Fonction</label>
+                        <select id="register_firmFunction" name="register[firmFunction]" required="required" class="input_text field required select select_account"><option value=""></option><option value="direction_generale_secretariat_general_gerant">Direction Générale, secrétariat général, gérant</option><option value="auto_entrepreneur">Auto-entrepreneur</option><option value="architecte_maitrise_oeuvre_conception">Architecte, maîtrise d&#039;œuvre, conception</option><option value="travaux_exploitation_production_technique">Travaux, exploitation, production, technique</option><option value="commercial">Commercial</option><option value="consultant_audit_etudes_formation">Consultant, audit, études, formation</option><option value="informatique_internet">Informatique, Internet</option><option value="marketing_communication_promotion">Marketing, communication, promotion</option><option value="gestion_administration_achat">Gestion, administration, achat</option><option value="comptabilite_finances">Comptabilité, finances</option><option value="ressources_humaines_rse">Ressources humaines, fonction RSE</option><option value="juridique_professions_reglementees">Juridique, professions réglementées</option><option value="patrimoine_immobilier_foncier">Patrimoine, immobilier, foncier</option><option value="restauration_hotellerie">Restauration, hôtellerie</option><option value="fonction_publique">Fonction publique</option><option value="elu">Elu</option><option value="autre">Autre: (préciser)</option></select>
+                    </div>
+                </li>
+
+                <li id="autre-field" style="display: none;">
+                    <div class="contentField animateLabel js-animateLabel">
+                        <div><label for="register_firmFunctionOther">Préciser votre fonction</label><input type="text" id="register_firmFunctionOther" name="register[firmFunctionOther]" length="255" /></div>
+                    </div>
+                </li>
+
+                <li>
+                    <div class="contentField contentField--select animateLabel js-animateLabel required">
+                        <label class="" for="register_firmActivitySector">Secteur activités</label>
+                        <select id="register_firmActivitySector" name="register[firmActivitySector]" required="required" class="input_text field required select select_account"><option value=""></option><option value="1">A - Agriculture, sylviculture et pêche</option><option value="3">B - Industries extractives</option><option value="25">C - Industrie manufacturière</option><option value="4">D - Production et distribution d’électricité, de gaz, de vapeur et d’air conditionné</option><option value="5">E - Production et distribution d’eau ; assainissement, gestion des déchets et dépollution</option><option value="6">F - Construction</option><option value="20">G - Commerce</option><option value="7">H - Transports et entreposage</option><option value="8">I - Hébergement et restauration</option><option value="9">J - Édition, diffusion et activités de production et de distribution de contenu</option><option value="10">K - Télécommunications, programmation informatique, conseil, infrastructure informatique et autres activités de service informatique</option><option value="12">L - Activités financières et d’assurance</option><option value="13">M - Activités immobilières</option><option value="11">N - Activités spécialisées, scientifiques et techniques</option><option value="21">O - Activités de service administratif et de soutien</option><option value="22">P - Administration publique et défense ; sécurité sociale obligatoire</option><option value="14">Q - Enseignement</option><option value="15">R - Santé humaine et activités d’action sociale</option><option value="17">S - Arts, sports et activités récréatives</option><option value="16">T - Autres activités de services</option><option value="23">U - Activités des ménages en tant qu’employeurs ; activités indifférenciées des ménages en tant que producteurs de biens et services pour usage propre</option><option value="24">V - Activités des organisations et organismes extraterritoriaux</option><option value="19">W - Autre</option></select>
+                    </div>
+                                    </li>
+                <li>
+                    <div class="contentField contentField--select animateLabel js-animateLabel required">
+                        <label class="" for="register_firmSize">Taille entreprise</label>
+                        <select id="register_firmSize" name="register[firmSize]" required="required" class="input_text field required select select_account errorForm"><option value=""></option><option value="1">0 à 9</option><option value="2">10 à 49 </option><option value="3">50 à 499</option><option value="4">500 à 999</option><option value="5">Plus de 1000 </option></select>
+                    </div>
+                                    </li>
+                <li>
+                    <div class="contentField animateLabel js-animateLabel required">
+                        <label for="register_postalCode" class="required">Code postal</label>
+                        <input type="text" id="register_postalCode" name="register[postalCode]" required="required" class="number field required input_text postal_code js-postal-code" maxlength="5" min="0" max="99999" step="1000" />
+                    </div>
+                                        <div class="errorSubMsg js-postal-code-invalid js-hide">Votre code postal ne semble pas en France. Rien de grave, vous pouvez le modifier ou simplement valider</div>
+                </li>
+                <li>
+                    <div class="checkbox">
+                        <input type="checkbox" id="register_defaultAlert" name="register[defaultAlert]" value="1" checked="checked" />
+                        J’accepte de recevoir des alertes de marchés publics de mon département
+                    </div>
+                </li>
+                <li>
+                    <div class="checkbox">
+                        <input type="checkbox" id="register_cgu" name="register[cgu]" required="required" value="1" />
+                        J’ai lu et j’accepte les <a target="_blank" class="link" href="https://www.francemarches.com/cgu">CGU</a>
+                    </div>
+                    <div class="errorSubMsg"></div>
+                </li>
+            </ul>
+        </fieldset>
+        <div class="form__footer">
+            <button type="submit" class="form__footer-button button buttonOrange">Créer mon compte</button>
+            <div class="form__footer-text">
+                J’ai déjà un compte - 
+                                    <a href="#popinLogin" class="js-open-popup-login">me connecter</a>
+                            </div>
+        </div>
+    </div>
+<input type="hidden" id="register__token" name="register[_token]" value="779b.4yREnzc7urghyANohhvIbkcQqaMeeyl9OiBd-StGOow.tmk0zFtDl9ZpqVdZ_CKZJn50mOlkC2gHUhAWoGUhX8igHS30D0P82mmeMw" /></form>
+	    </div>
+	</div><!-- contentPopup -->
+</div>
+    <div class="popup js-popup js-popup-forgot-password">
+    <div class="contentPopup contentPopup__login">
+        <div class="popup__header">
+            <h2>
+                Mot de passe oublié
+            </h2> 
+            <span class="js-popup-close close basic-pictocross"></span>
+        </div>
+        <div class="content">
+            <form name="request_password" method="post" action="/form-request-password" class="js-submit-reset-password">
+    <div class="alert alert-success js-hide js-comfirm-submit-msg">
+        <svg class="alert__icon icon icon-paperplane"><use xlink:href="#icon-paperplane"></use></svg>
+        <div class="text">Nous venons de vous envoyer un message contenant un lien pour définir votre nouveau mot de passe. N&#039;hésitez pas à regarder dans vos spams pour retrouver ce message.</div>
+    </div>
+
+    <div class="clearfix">
+        <ul class="contentFields">
+            <li>
+                <div class="contentField animateLabel js-animateLabel">
+                    <div class="form-group"><label for="request_password_email" class="required">Email</label><input type="email" id="request_password_email" name="request_password[email]" required="required" class="form-control" /></div>
+                </div>
+            </li>
+        </ul>
+    </div><!-- clearfix -->
+    <div class="form__footer">
+        <button type="submit" class="form__footer-button button buttonOrange">Envoyer</button>
+    </div>
+<input type="hidden" id="request_password__token" name="request_password[_token]" value="e35a8f78a0f9ed4423939ce.NtfXu5O_9jRjYAl-g3ng6ppQBPZr7FZXMKkAvaFWcHE.fKKN18TXu2chV2AoxAim3MkGVLs0pRAhQ-pn58oMHAZ6voHW0vu9fQIFYg" /></form>
+        </div>
+    </div><!-- contentPopup -->
+</div>
+
+                <script>
+            window.daterangePickerLocale = {
+                format: 'DD/MM/YYYY',
+                "applyLabel": "Appliquer",
+                "cancelLabel": "Annuler",
+                "daysOfWeek": [
+                    'Dim',
+                    'Lun',
+                    'Mar',
+                    'Mer',
+                    'Jeu',
+                    'Ven',
+                    'Sam'
+                ],
+                "monthNames": [
+                    'Janvier',
+                    'Février',
+                    'Mars',
+                    'Avril',
+                    'Mai',
+                    'Juin',
+                    'Juillet',
+                    'Août',
+                    'Septembre',
+                    'Octobre',
+                    'Novembre',
+                    'Décembre'
+                ],
+                'customRangeLabel': 'Période personnalisée',
+                firstDay:1
+            };
+            // window.daterangePickerLocale = {
+            //     format: 'DD/MM/YYYY',
+            //     "applyLabel": "Appliquer",
+            //     "cancelLabel": "Annuler",
+            //     "daysOfWeek": [
+            //         'Dim',
+            //         'Lun',
+            //         'Mar',
+            //         'Mer',
+            //         'Jeu',
+            //         'Ven',
+            //         'Sam'
+            //     ],
+            //     "monthNames": [
+            //         'Janvier',
+            //         'Février',
+            //         'Mars',
+            //         'Avril',
+            //         'Mai',
+            //         'Juin',
+            //         'Juillet',
+            //         'Août',
+            //         'Septembre',
+            //         'Octobre',
+            //         'Novembre',
+            //         'Décembre'
+            //     ],
+            //     firstDay:1
+            // };
+        </script>
+        <script src="/dist/js/front.min.js"></script>
+    
+
+</body>
+</html>

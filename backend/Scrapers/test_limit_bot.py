@@ -47,11 +47,18 @@ except Exception as exc:  # pragma: no cover - script utilitaire
     raise SystemExit(f"Import impossible du scraper historique: {exc}")
 
 
-DATADOME_MARKERS = [
+SOFT_ANTIBOT_MARKERS = [
+    "datadome",
+    "x-datadome",
+]
+
+HARD_CHALLENGE_MARKERS = [
     "please enable js and disable any ad blocker",
     "captcha-delivery.com",
-    "x-datadome",
-    "datadome",
+    "/captcha/",
+    "geo.captcha-delivery.com",
+    "datadome captcha",
+    "why_captcha",
 ]
 
 
@@ -117,11 +124,33 @@ HEADER_VARIANTS: dict[str, dict[str, str]] = {
 }
 
 
-def has_antibot_markers(html: str) -> bool:
+def detect_antibot(html: str) -> dict[str, Any]:
     if not html:
-        return False
+        return {
+            "has_soft_marker": False,
+            "has_hard_challenge": False,
+            "soft_markers": [],
+            "hard_markers": [],
+        }
+
     html_low = html.lower()
-    return any(marker in html_low for marker in DATADOME_MARKERS)
+
+    soft = [m for m in SOFT_ANTIBOT_MARKERS if m in html_low]
+    hard = [m for m in HARD_CHALLENGE_MARKERS if m in html_low]
+
+    return {
+        "has_soft_marker": bool(soft),
+        "has_hard_challenge": bool(hard),
+        "soft_markers": soft,
+        "hard_markers": hard,
+    }
+
+def warmup_session(session: requests.Session, timeout_s: float) -> None:
+    try:
+        r = session.get("https://www.francemarches.com", timeout=timeout_s)
+        print(f"[debug] Warmup status: {r.status_code}")
+    except requests.RequestException as exc:
+        print(f"[debug] Warmup failed: {exc}")
 
 
 def parse_rpm_list(raw: str) -> list[int]:
@@ -158,8 +187,11 @@ def request_once(session: requests.Session, url: str, timeout_s: float) -> Reque
         response = session.get(url, timeout=timeout_s)
         dt = time.perf_counter() - t0
         html = response.text or ""
-        is_challenge = has_antibot_markers(html)
+        detection = detect_antibot(html)
+        is_challenge = detection["has_hard_challenge"]
         ok = response.ok and not is_challenge and response.status_code != 403
+        if detection["has_soft_marker"] and not detection["has_hard_challenge"]:
+            print(f"[debug] Marqueurs Datadome non bloquants détectés: {detection['soft_markers']}")
         return RequestResult(
             ok=ok,
             status=response.status_code,
@@ -191,25 +223,45 @@ def collect_article_urls(
 
     for page in range(1, pages_to_scan + 1):
         url = generer_url(mots, page=page)
+        print(f"[debug] Scan page {page}: {url}")
+
         try:
             response = session.get(url, timeout=timeout_s)
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            print(f"[debug] Erreur réseau page {page}: {exc}")
             continue
 
-        if response.status_code >= 400:
-            continue
+        print(f"[debug] Status page {page}: {response.status_code}")
+
         html = response.text or ""
-        if has_antibot_markers(html):
+        Path("debug_francemarches.html").write_text(html, encoding="utf-8")
+                
+        if response.status_code >= 400:
+            print(f"[debug] Page {page} ignorée: HTTP {response.status_code}")
             continue
+
+        detection = detect_antibot(html)
+
+        if detection["has_hard_challenge"]:
+            print(f"[debug] Page {page} ignorée: challenge détecté {detection['hard_markers']}")
+            continue
+
+        if detection["has_soft_marker"]:
+            print(f"[debug] Page {page}: marqueurs Datadome non bloquants détectés {detection['soft_markers']}")
 
         links = extraire_liens_offres_frmar(html, mots)
+        print(f"[debug] Liens trouvés page {page}: {len(links)}")
+
         for _, link in links:
             if link not in seen:
                 seen.add(link)
                 found.append(link)
+                print(f"[debug] URL ajoutée: {link}")
+
             if len(found) >= article_sample_size:
                 return found
 
+    print(f"[debug] Total URLs collectées: {len(found)}")
     return found
 
 
@@ -288,7 +340,7 @@ def print_detailed_report(endpoint: str, profile_reports: dict[str, list[StepRep
             print(f"=> Recommandation profil '{profile_name}': ~{reco} requêtes/min stable.")
         else:
             print(
-                "=> Recommandation profil '{profile_name}': aucune cadence stable "
+                f"=> Recommandation profil '{profile_name}': aucune cadence stable "
                 "selon les critères (>=95% succès, <=5% blocage)."
             )
 
@@ -312,6 +364,7 @@ def run_limits_benchmark(
 
     # Collecte de pages d'articles avec le profil baseline.
     baseline_sess = build_limit_test_session(profile_name="baseline")
+    warmup_session(baseline_sess, timeout_s)
     article_urls = collect_article_urls(
         session=baseline_sess,
         query=query,
