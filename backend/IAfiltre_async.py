@@ -7,6 +7,7 @@ import asyncio
 import httpx
 import framatome
 import truststore
+from urllib.parse import urlparse
 
 from inspect_db import safe_insert, safe_delete_raw
 from jsonschema import validate as jsonschema_validate, ValidationError
@@ -59,7 +60,6 @@ JSON_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "titre": {"type": ["string", "null"]},
-                    "source": {"type": ["string", "null"]},
                     "date_publication": {"type": ["string", "null"]},
                     "date_cloture": {"type": ["string", "null"]},
                     "lieu": {"type": ["string", "null"]},
@@ -72,13 +72,12 @@ JSON_SCHEMA = {
                     "raison": {"type": ["string", "null"]},
                     "secteur": {"type": ["string", "null"]},
                     "mot_cle": {"type": ["string", "null"]},
-                    "lien": {"type": ["string", "null"]},
-                    "search_id": {"type": "integer"}
+                    "lien": {"type": ["string", "null"]}
                 },
                 "required": [
-                    "titre", "source", "date_publication", "date_cloture", "lieu",
+                    "titre", "date_publication", "date_cloture", "lieu",
                     "budget", "type_marche", "acheteur", "reference", "score_ia",
-                    "tags", "raison", "secteur", "mot_cle", "lien", "search_id"
+                    "tags", "raison", "secteur", "mot_cle", "lien"
                 ],
                 "additionalProperties": False
             },
@@ -472,7 +471,26 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
 # ========================================================================
 # TRAITEMENT D'UN RAW
 # ========================================================================
-async def handle_single_raw(raw_id: int, html_content: str, lien: str, search_id: int, crit: str):
+def resolve_source(job_source: str | None, lien: str) -> str:
+    if isinstance(job_source, str) and job_source.strip():
+        return job_source.strip()
+
+    parsed = urlparse((lien or "").strip())
+    netloc = (parsed.netloc or "").strip().lower()
+    if netloc:
+        return netloc
+
+    return "unknown_source"
+
+
+async def handle_single_raw(
+    raw_id: int,
+    html_content: str,
+    lien: str,
+    search_id: int,
+    source: str,
+    crit: str,
+):
 
     print(f"[RAW {raw_id}] Début traitement")
     result = await limited_extract(html_content, search_id, raw_id, crit)
@@ -491,12 +509,12 @@ async def handle_single_raw(raw_id: int, html_content: str, lien: str, search_id
     
     if not pertinent:
         print(f"[RAW {raw_id}] 🚫 Non pertinent")
-        safe_insert(extraction, pertinent, raw_id, lien)
+        safe_insert(extraction, pertinent, raw_id, lien, source=source, search_id=search_id)
         safe_delete_raw(raw_id, search_id)   #il faudra qu'on choisisse si on garde ou pas
         return
 
 
-    safe_insert(extraction, pertinent, raw_id, lien)
+    safe_insert(extraction, pertinent, raw_id, lien, source=source, search_id=search_id)
     safe_delete_raw(raw_id, search_id)
 
 # ========================================================================
@@ -509,6 +527,14 @@ async def process_search_id_async(search_id: int, user_description: str):
     cur = conn.cursor()
     
     cur.execute("""
+        SELECT source
+        FROM recherches_jobs
+        WHERE id = ?
+    """, (search_id,))
+    row = cur.fetchone()
+    job_source = row[0] if row else None
+
+    cur.execute("""
         SELECT id, html_contenu, lien
         FROM raw_recherches
         WHERE search_id = ?
@@ -519,8 +545,9 @@ async def process_search_id_async(search_id: int, user_description: str):
     tasks = []
     for raw_id, html_content, lien in raws:
         if html_content and len(html_content.strip()) > 50:
+            source = resolve_source(job_source, lien)
             tasks.append(asyncio.create_task(
-                handle_single_raw(raw_id, html_content, lien, search_id, user_description)
+                handle_single_raw(raw_id, html_content, lien, search_id, source, user_description)
             ))
 
     await asyncio.gather(*tasks)

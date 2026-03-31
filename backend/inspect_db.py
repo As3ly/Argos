@@ -143,11 +143,27 @@ def raw_lien_existe(search_id: int, lien: str) -> bool:
         )
         return cur.fetchone() is not None
 
-def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str):
+def safe_insert(
+    extraction: dict,
+    pertinent: bool,
+    raw_id: int,
+    lien: str,
+    source: str,
+    search_id: int,
+):
     """
     Insère les données extraites en BDD de manière robuste.
     Jamais d’insertion si JSON invalide (validé en amont).
     """
+    if not isinstance(source, str) or not source.strip():
+        print(f"[RAW {raw_id}] ❌ Insertion refusée: source vide/invalide (source={source!r})")
+        return
+
+    if not isinstance(search_id, int) or search_id <= 0:
+        print(f"[RAW {raw_id}] ❌ Insertion refusée: search_id invalide (search_id={search_id!r})")
+        return
+
+    conn = None
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -164,7 +180,7 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             extraction["titre"],
-            extraction["source"],
+            source.strip(),
             extraction["date_publication"],
             extraction["date_cloture"],
             extraction["lieu"],
@@ -178,7 +194,7 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str):
             extraction["secteur"],
             extraction["mot_cle"],
             lien,
-            extraction["search_id"],
+            search_id,
         ))
 
         conn.commit()
@@ -191,7 +207,8 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str):
         print(f"[RAW {raw_id}] ❌ Erreur INSERT : {e}")
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def safe_delete_raw(raw_id: int, search_id: int):
