@@ -27,9 +27,26 @@ CREATE TABLE IF NOT EXISTS recherches_jobs (
     titre TEXT,
     requete TEXT NOT NULL,
     source TEXT,
+    source_id INTEGER,
+    params TEXT,
     statut TEXT DEFAULT 'pending',
     nb_trouves INTEGER DEFAULT 0,
     nb_insere INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (source_id)
+        REFERENCES sources(id)
+        ON DELETE SET NULL
+);
+"""
+
+DDL_SOURCES = """
+CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    label TEXT,
+    base_url TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -39,6 +56,7 @@ CREATE TABLE IF NOT EXISTS appels_offres (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titre TEXT,
     source TEXT,
+    source_id INTEGER,
     date_publication TEXT,
     date_cloture TEXT,
     lieu TEXT,
@@ -57,7 +75,10 @@ CREATE TABLE IF NOT EXISTS appels_offres (
 
     FOREIGN KEY (search_id)
         REFERENCES recherches_jobs(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (source_id)
+        REFERENCES sources(id)
+        ON DELETE SET NULL
 );
 """
 
@@ -66,6 +87,7 @@ CREATE TABLE IF NOT EXISTS raw_recherches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     search_id INTEGER NOT NULL,
     source TEXT NOT NULL,
+    source_id INTEGER,
     mot_cle TEXT,
     html_contenu TEXT,
     lien TEXT,
@@ -73,23 +95,126 @@ CREATE TABLE IF NOT EXISTS raw_recherches (
 
     FOREIGN KEY (search_id)
         REFERENCES recherches_jobs(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (source_id)
+        REFERENCES sources(id)
+        ON DELETE SET NULL
 );
 """
 
 DDL_INDEXES = [
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_code ON sources(code)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ao_lien ON appels_offres(lien)",
     "CREATE INDEX IF NOT EXISTS idx_ao_search_id ON appels_offres(search_id)",
-    "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_lien ON raw_recherches(search_id, lien)"
+    "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_lien ON raw_recherches(search_id, lien)",
+    "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_source ON raw_recherches(search_id, source_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ao_search_source ON appels_offres(search_id, source_id)"
 ]
+
+
+def _has_column(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(r[1] == column_name for r in rows)
+
+
+def _migrate_source_id_columns(conn: sqlite3.Connection) -> None:
+    """
+    Migration idempotente:
+    - ajoute les colonnes source_id si absentes;
+    - crée/garantit la source 'francemarches';
+    - mappe toutes les lignes existantes vers source_id de 'francemarches'.
+    """
+    if not _has_column(conn, "recherches_jobs", "source_id"):
+        conn.execute("ALTER TABLE recherches_jobs ADD COLUMN source_id INTEGER")
+    if not _has_column(conn, "raw_recherches", "source_id"):
+        conn.execute("ALTER TABLE raw_recherches ADD COLUMN source_id INTEGER")
+    if not _has_column(conn, "appels_offres", "source_id"):
+        conn.execute("ALTER TABLE appels_offres ADD COLUMN source_id INTEGER")
+
+    conn.execute(
+        """
+        INSERT INTO sources(code, label, base_url, active)
+        VALUES ('francemarches', 'France Marchés', 'https://www.francemarches.com/', 1)
+        ON CONFLICT(code) DO NOTHING
+        """
+    )
+
+    source_id = get_source_id_by_code("francemarches", conn=conn)
+    if source_id is None:
+        raise RuntimeError("Impossible de récupérer/initialiser la source 'francemarches'.")
+
+    conn.execute(
+        "UPDATE recherches_jobs SET source_id = ? WHERE source_id IS NULL",
+        (source_id,),
+    )
+    conn.execute(
+        "UPDATE raw_recherches SET source_id = ? WHERE source_id IS NULL",
+        (source_id,),
+    )
+    conn.execute(
+        "UPDATE appels_offres SET source_id = ? WHERE source_id IS NULL",
+        (source_id,),
+    )
+
+
+def get_source_id_by_code(code: str, *, conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
+    if not code or not code.strip():
+        return None
+    code = code.strip().lower()
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_conn()
+    try:
+        row = conn.execute("SELECT id FROM sources WHERE code = ? LIMIT 1", (code,)).fetchone()
+        return int(row["id"] if isinstance(row, sqlite3.Row) else row[0]) if row else None
+    finally:
+        if owns_conn and conn is not None:
+            conn.close()
+
+
+def ensure_source(
+    code: str,
+    *,
+    label: Optional[str] = None,
+    base_url: Optional[str] = None,
+    active: int = 1,
+    conn: Optional[sqlite3.Connection] = None
+) -> int:
+    if not code or not code.strip():
+        raise ValueError("Le champ 'code' est obligatoire pour la table sources.")
+    code = code.strip().lower()
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO sources(code, label, base_url, active)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(code) DO UPDATE SET
+                label = COALESCE(excluded.label, sources.label),
+                base_url = COALESCE(excluded.base_url, sources.base_url),
+                active = excluded.active
+            """,
+            (code, label, base_url, active),
+        )
+        source_id = get_source_id_by_code(code, conn=conn)
+        if source_id is None:
+            raise RuntimeError(f"Impossible de récupérer l'id source pour code='{code}'.")
+        return source_id
+    finally:
+        if owns_conn and conn is not None:
+            conn.close()
 
 
 def init_db() -> None:
     with closing(get_conn()) as conn, conn:
         cur = conn.cursor()
+        cur.execute(DDL_SOURCES)
         cur.execute(DDL_RECHERCHES_JOBS)
         cur.execute(DDL_APPELS_OFFRES)
         cur.execute(DDL_RAW)
+        _migrate_source_id_columns(conn)
         for ddl in DDL_INDEXES:
             cur.execute(ddl)
 
@@ -107,13 +232,14 @@ def create_recherche_job(
     if not requete:
         raise ValueError("Le champ 'requete' est obligatoire.")
     with closing(get_conn()) as conn, conn:
+        source_id = get_source_id_by_code(source, conn=conn) if source else None
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO recherches_jobs (requete, source, params, statut, nb_trouves, nb_insere, titre)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO recherches_jobs (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (requete, source, params, statut, nb_trouves, nb_insere, titre)
+            (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre)
         )
         return cur.lastrowid
 
@@ -132,10 +258,11 @@ def inserer_raw_recherche(
             
     with closing(get_conn()) as conn, conn:
         cur = conn.cursor()
+        source_id = get_source_id_by_code(source, conn=conn)
         cur.execute("""
-            INSERT INTO raw_recherches (search_id, source, mot_cle, html_contenu, lien)
-            VALUES (?, ?, ?, ?, ?)
-        """, (search_id, source, mot_cle, html_contenu, lien))
+            INSERT INTO raw_recherches (search_id, source, source_id, mot_cle, html_contenu, lien)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (search_id, source, source_id, mot_cle, html_contenu, lien))
         
 
 def raw_lien_existe(search_id: int, lien: str) -> bool:
@@ -177,14 +304,15 @@ def safe_insert(
 
         cur.execute("""
             INSERT INTO appels_offres (
-                titre, source, date_publication, date_cloture, lieu, budget,
+                titre, source, source_id, date_publication, date_cloture, lieu, budget,
                 type_marche, acheteur, reference, score_ia, tags, raison,
                 secteur, mot_cle, lien, search_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             extraction["titre"],
             source.strip(),
+            get_source_id_by_code(source, conn=conn),
             extraction["date_publication"],
             extraction["date_cloture"],
             extraction["lieu"],
@@ -278,15 +406,16 @@ def add_appel_offre(
         if cur.fetchone() is None:
             raise ValueError(f"search_id={search_id} introuvable dans 'recherches_jobs'.")
 
+        source_id = get_source_id_by_code(source, conn=conn) if source else None
         cur.execute(
             """
             INSERT OR IGNORE INTO appels_offres
-            (titre, source, date_publication, date_cloture, lieu, budget, type_marche,
+            (titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
              acheteur, reference, score_ia, tags, raison, secteur, mot_cle, lien, search_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                titre, source, date_publication, date_cloture, lieu, budget, type_marche,
+                titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
                 acheteur, reference, score_ia, tags, raison, secteur, mot_cle, lien, search_id
             )
         )
