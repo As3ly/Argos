@@ -535,7 +535,7 @@ async def process_search_id_async(search_id: int, user_description: str):
     job_source = row[0] if row else None
 
     cur.execute("""
-        SELECT id, html_contenu, lien
+        SELECT id, html_contenu, lien, source
         FROM raw_recherches
         WHERE search_id = ?
     """, (search_id,))
@@ -543,9 +543,9 @@ async def process_search_id_async(search_id: int, user_description: str):
     conn.close()
 
     tasks = []
-    for raw_id, html_content, lien in raws:
+    for raw_id, html_content, lien, raw_source in raws:
         if html_content and len(html_content.strip()) > 50:
-            source = resolve_source(job_source, lien)
+            source = resolve_source(raw_source or job_source, lien)
             tasks.append(asyncio.create_task(
                 handle_single_raw(raw_id, html_content, lien, search_id, source, user_description)
             ))

@@ -244,7 +244,13 @@ def scrape_francemarche_into_raw(search_id: int, mots_recherche: list, sess: req
             continue
 
         texte_clean = extraire_html_AO_frmar(lien, sess)
-        inserer_raw_recherche(search_id=search_id, mot_cle=mot, html_contenu=texte_clean, lien=lien)
+        inserer_raw_recherche(
+            search_id=search_id,
+            source="francemarches",
+            mot_cle=mot,
+            html_contenu=texte_clean,
+            lien=lien
+        )
 
         if i % 10 == 0:
             print("[info] Scrapping des AO... Avancement :", round(i * 100 / len(liens_uniques), 2), "%")

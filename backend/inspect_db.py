@@ -65,6 +65,7 @@ DDL_RAW = """
 CREATE TABLE IF NOT EXISTS raw_recherches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     search_id INTEGER NOT NULL,
+    source TEXT NOT NULL,
     mot_cle TEXT,
     html_contenu TEXT,
     lien TEXT,
@@ -119,19 +120,22 @@ def create_recherche_job(
 def inserer_raw_recherche(
     *,
     search_id: int,
+    source: str,
     mot_cle,
     html_contenu: str,
     lien: str
 ):
     if isinstance(mot_cle, list):
         mot_cle = mot_cle[0] if mot_cle else "" #gestion des listes vides
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("Le champ 'source' est obligatoire pour raw_recherches.")
             
     with closing(get_conn()) as conn, conn:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO raw_recherches (search_id, mot_cle, html_contenu, lien)
-            VALUES (?, ?, ?, ?)
-        """, (search_id, mot_cle, html_contenu, lien))
+            INSERT INTO raw_recherches (search_id, source, mot_cle, html_contenu, lien)
+            VALUES (?, ?, ?, ?, ?)
+        """, (search_id, source, mot_cle, html_contenu, lien))
         
 
 def raw_lien_existe(search_id: int, lien: str) -> bool:
