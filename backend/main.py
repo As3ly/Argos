@@ -8,7 +8,7 @@ import asyncio
 # main.py reste un "mode CLI" pratique pour tester sans UI.
 # L'orchestration propre (compatible serveur async) est dans pipeline.py.
 from pipeline import create_job_for_prompt, generate_keywords, run_full_pipeline
-from inspect_db import init_db, update_recherche_job
+from db.repository import initialize_database, update_recherche_job
 
 
 #################################### Init ###############################
@@ -21,7 +21,7 @@ prompt_client = (
 
 #################################### Script ###############################
 def main(prompt_client: str):
-    init_db()
+    initialize_database()
 
     # 1) Créer le job
     search_id = create_job_for_prompt(source="francemarches", statut="en_cours")

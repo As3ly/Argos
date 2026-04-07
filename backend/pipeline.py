@@ -18,7 +18,7 @@ from typing import List, Sequence
 from datetime import date, datetime
 
 from IAfiltre_async import generate_criteres_prompt_json, process_search_id_async
-from inspect_db import init_db, create_recherche_job, update_recherche_job
+from db.repository import initialize_database, create_recherche_job, update_recherche_job
 
 
 # Les scrapers existent dans ton repo. En sandbox ils ne sont pas fournis,
@@ -61,7 +61,7 @@ class KeywordsResult:
 
 def create_job_for_prompt(*, source: str, statut: str = "en_cours") -> int:
     """Crée un job DB minimal. La requête sera remplie après validation des mots-clés."""
-    init_db()
+    initialize_database()
     return create_recherche_job(
         requete="en cours de génération",
         source=source,

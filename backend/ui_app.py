@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from nicegui import ui
 
-import inspect_db
+from db import repository as db_repository
 from pipeline import (
     KeywordsResult,
     create_job_for_prompt,
@@ -85,12 +85,12 @@ ui.add_head_html(
 
 
 ###############################################################################
-# DB helpers (on reste aligné avec inspect_db.DB_PATH)
+# DB helpers (on reste aligné avec db_repository.DB_PATH)
 ###############################################################################
 
 
 def _conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(inspect_db.DB_PATH)
+    conn = sqlite3.connect(db_repository.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -130,7 +130,7 @@ def get_job(search_id: int) -> Optional[Dict[str, Any]]:
 def list_aos_p(search_id: int, limit: int = 300, *, score_desc: bool = True) -> List[Dict[str, Any]]:
     score_order = "DESC" if score_desc else "ASC"
     return list(
-        inspect_db.list_appels_offres_pert(
+        db_repository.list_appels_offres_pert(
             search_id=search_id,
             limit=limit,
             order_by=f"score_ia {score_order}, date_ajout DESC",
@@ -140,7 +140,7 @@ def list_aos_p(search_id: int, limit: int = 300, *, score_desc: bool = True) -> 
 
 def list_aos_np(search_id: int, limit: int = 300) -> List[Dict[str, Any]]:
     return list(
-        inspect_db.list_appels_offres_non_pert(
+        db_repository.list_appels_offres_non_pert(
             search_id=search_id,
             limit=limit,
             order_by="date_ajout DESC",
@@ -476,7 +476,7 @@ class KeywordsWizard:
             self._render_keywords_editor()
 
         except Exception as e:
-            inspect_db.update_recherche_job(self.search_id, statut="erreur_generation")
+            db_repository.update_recherche_job(self.search_id, statut="erreur_generation")
             ui.notify(f"Erreur génération mots-clés: {e}", type="negative")
             self.close()
 
@@ -490,7 +490,7 @@ class KeywordsWizard:
 
         # Met à jour requête immédiatement
         requete_str = mots_recherche_to_requete(self.mots_recherche)
-        inspect_db.update_recherche_job(self.search_id, requete=requete_str)
+        db_repository.update_recherche_job(self.search_id, requete=requete_str)
 
         # UI: mode "running" (IMPORTANT: on se met dans le contexte du container)
         if self._keywords_container is not None:
@@ -526,7 +526,7 @@ class KeywordsWizard:
             print(f"[PIPELINE] Erreur: {e!r}")
             # on marque le job en erreur pour que le poll UI l'affiche
             try:
-                inspect_db.update_recherche_job(self.search_id, statut="erreur_pipeline")
+                db_repository.update_recherche_job(self.search_id, statut="erreur_pipeline")
             except Exception:
                 pass
             return
@@ -575,7 +575,7 @@ class KeywordsWizard:
 
 @ui.page("/")
 def page_home() -> None:
-    inspect_db.init_db()
+    db_repository.initialize_database()
     ui.page_title("Recherches")
 
     header = ui.row().classes("w-full items-center justify-between")
@@ -706,7 +706,7 @@ def page_recherche_non_pertinent(recherche_id: str) -> None:
 
 
 def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> None:
-    inspect_db.init_db()
+    db_repository.initialize_database()
 
     try:
         rid = int(recherche_id)
