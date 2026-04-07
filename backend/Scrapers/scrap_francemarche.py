@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from datetime import date, timedelta
 
-from inspect_db import inserer_raw_recherche, raw_lien_existe, update_recherche_job
+from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job
 
 
 # ========================================================================

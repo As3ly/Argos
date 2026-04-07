@@ -9,7 +9,7 @@ import framatome
 import truststore
 from urllib.parse import urlparse
 
-from inspect_db import safe_insert, safe_delete_raw
+from db.repository import safe_insert, safe_delete_raw
 from jsonschema import validate as jsonschema_validate, ValidationError
 from openai import AsyncAzureOpenAI
 from dotenv import load_dotenv
