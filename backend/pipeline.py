@@ -72,7 +72,14 @@ def create_job_for_prompt(*, source: str, statut: str = "en_cours") -> int:
 async def generate_keywords(*, search_id: int, prompt_client: str) -> KeywordsResult:
     """Appel LLM async: génère mots-clés + meta_prompt."""
     update_recherche_job(search_id, statut="generation_mots_cle")
-    mots_recherche, meta_prompt, titre_recherche = await generate_criteres_prompt_json(search_id, prompt_client)
+    result = await generate_criteres_prompt_json(search_id, prompt_client)
+    if not result or len(result) != 3:
+        raise RuntimeError(
+            "La génération Azure n'a pas retourné de données exploitables "
+            "(mots-clés / meta-prompt / titre)."
+        )
+
+    mots_recherche, meta_prompt, titre_recherche = result
     return KeywordsResult(
         search_id=search_id,
         mots_recherche=mots_recherche,

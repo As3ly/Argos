@@ -61,6 +61,19 @@ Créer un fichier `.env` à la racine du projet :
 
 ```env
 AZURE_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxx
+AZURE_ENDPOINT=https://<ressource>.openai.azure.com
+DEPLOYMENT=<nom_du_deployment_azure>
+API_VERSION=2024-10-21
+# Timeout Azure (optionnels)
+# AZURE_CONNECT_TIMEOUT_S=10
+# AZURE_READ_TIMEOUT_S=120
+# AZURE_WRITE_TIMEOUT_S=30
+# AZURE_POOL_TIMEOUT_S=30
+# Nombre max de tokens en génération mots-clés
+# PROMPT_GEN_MAX_TOKENS=900
+# Proxy Azure (optionnels)
+# AZURE_USE_PROXY=true
+# AZURE_PROXY_URL=http://proxy:8080
 # Optionnel: surcharge DB
 # ARGOS_DB_PATH=/chemin/vers/html_scrap.db
 ```
@@ -170,6 +183,11 @@ backend/
   - Vérifier que vous lancez bien via `uv run ...` après `uv sync`.
 - **Erreur Azure API key**
   - Vérifier `AZURE_API_KEY` dans `.env`.
+- **Timeout Azure lors de la génération mots-clés**
+  - Vérifier `AZURE_ENDPOINT`, `DEPLOYMENT`, `API_VERSION`.
+  - Si votre réseau impose un proxy, valider `AZURE_USE_PROXY` / `AZURE_PROXY_URL`.
+  - Augmenter `AZURE_READ_TIMEOUT_S` (ex: `120` ou `180`).
+  - Réduire `PROMPT_GEN_MAX_TOKENS` (ex: `700` à `900`) pour accélérer la réponse.
 - **Aucun résultat**
   - Élargir la période, assouplir le prompt, retirer des exclusions trop strictes.
 - **UI ne démarre pas**
