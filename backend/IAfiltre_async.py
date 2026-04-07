@@ -51,8 +51,8 @@ async_client = AsyncAzureOpenAI(
 # ========================================================================
 # JSON SCHEMA (inchangé)
 # ========================================================================
-JSON_SCHEMA = {
-    "name": "appels_offres_schema_v2",
+EXTRACTION_SCHEMA = {
+    "name": "appels_offres_extraction_schema_v2",
     "schema": {
         "type": "object",
         "properties": {
@@ -80,10 +80,22 @@ JSON_SCHEMA = {
                     "tags", "raison", "secteur", "mot_cle", "lien"
                 ],
                 "additionalProperties": False
-            },
+            }
+        },
+        "required": ["extraction"],
+        "additionalProperties": False
+    },
+    "strict": True
+}
+
+CLASSIFICATION_SCHEMA = {
+    "name": "appels_offres_classification_schema_v1",
+    "schema": {
+        "type": "object",
+        "properties": {
             "pertinent": {"type": "boolean"}
         },
-        "required": ["extraction", "pertinent"],
+        "required": ["pertinent"],
         "additionalProperties": False
     },
     "strict": True
@@ -126,20 +138,33 @@ CRITERES_GEN_SCHEMA = {
 # ========================================================================
 # PROMPTS
 # ========================================================================
-SYSTEM_PROMPT = """
-Tu es un agent spécialisé en extraction, structuration, classification et qualification d'appels d'offres.
+SYSTEM_PROMPT_EXTRACTION = """
+Tu es un agent spécialisé en extraction et structuration d'appels d'offres.
 
 OBJECTIFS :
 1) Lire l'appel d'offre.
 2) Extraire les champs définis dans le schéma JSON.
-3) Déterminer pertinence.
-4) Retourner STRICTEMENT un JSON conforme.
+3) Retourner STRICTEMENT un JSON conforme.
 
 RÈGLES :
 - Aucune invention.
 - Dates en YYYY-MM-DD.
 - Pas d'invention budget.
 - "score_ia" ∈ [0,1].
+- Sortie 100% JSON strict.
+"""
+
+SYSTEM_PROMPT_CLASSIFICATION = """
+Tu es un agent spécialisé en classification et qualification d'appels d'offres.
+
+OBJECTIFS :
+1) Lire l'appel d'offre et les critères de pertinence.
+2) Déterminer uniquement si l'appel est pertinent (true/false).
+3) Retourner STRICTEMENT un JSON conforme.
+
+RÈGLES :
+- Aucune invention.
+- La décision doit se baser sur le contenu fourni.
 - Sortie 100% JSON strict.
 """
 
@@ -409,7 +434,10 @@ semaphore = asyncio.Semaphore(10)
 def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
     """Valide le JSON via jsonschema."""
     try:
-        jsonschema_validate(raw_json, JSON_SCHEMA["schema"])
+        jsonschema_validate(raw_json, EXTRACTION_SCHEMA["schema"])
+        if "pertinent" not in raw_json:
+            raise ValidationError("'pertinent' est requis")
+        jsonschema_validate({"pertinent": raw_json["pertinent"]}, CLASSIFICATION_SCHEMA["schema"])
         return True
     except ValidationError as e:
         print(f"[RAW {raw_id}] ❌ JSON non valide : {e.message}")
@@ -422,7 +450,7 @@ def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
 # RETRY EXPONENTIEL - FONCTION EXTRACTION AI
 # ========================================================================
 async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PERTINENCE: str):
-    """Appelle Azure OpenAI avec retry exponentiel + jitter."""
+    """Extraction structurée via Azure OpenAI avec retry exponentiel + jitter."""
     async with semaphore:
         max_attempts = 5
         base_delay = 1
@@ -434,10 +462,10 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                 response = await async_client.chat.completions.create(
                     model=DEPLOYMENT,
                     messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT + CRITERES_PERTINENCE},
+                        {"role": "system", "content": SYSTEM_PROMPT_EXTRACTION + CRITERES_PERTINENCE},
                         {"role": "user", "content": f"search_id={search_id}\n\n{ao_text}"}
                     ],
-                    response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
+                    response_format={"type": "json_schema", "json_schema": EXTRACTION_SCHEMA},
                     max_completion_tokens=2000
                 )
 
@@ -466,6 +494,60 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
             await asyncio.sleep(wait)
 
         print(f"[RAW {raw_id}] ❌ Échec final après {max_attempts} tentatives")
+        return None
+
+
+async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_PERTINENCE: str, extraction: dict):
+    """Classification de pertinence via un second appel IA dédié."""
+    async with semaphore:
+        max_attempts = 5
+        base_delay = 1
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                print(f"[RAW {raw_id}] Appel Azure classification (tentative {attempt})")
+
+                response = await async_client.chat.completions.create(
+                    model=DEPLOYMENT,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT_CLASSIFICATION + CRITERES_PERTINENCE},
+                        {
+                            "role": "user",
+                            "content": (
+                                f"search_id={search_id}\n\n"
+                                f"EXTRACTION_DONNEES={json.dumps(extraction, ensure_ascii=False)}\n\n"
+                                f"CONTENU_BRUT={ao_text}"
+                            ),
+                        }
+                    ],
+                    response_format={"type": "json_schema", "json_schema": CLASSIFICATION_SCHEMA},
+                    max_completion_tokens=800,
+                )
+
+                raw = response.choices[0].message.content
+                print(f"[RAW {raw_id}] Réponse classification (100 chars) : {raw[:100]!r}")
+
+                if not raw:
+                    print(f"[RAW {raw_id}] ❌ Réponse vide classification.")
+                    return None
+
+                try:
+                    parsed = json.loads(raw)
+                    return parsed
+                except Exception as e:
+                    print(f"[RAW {raw_id}] ❌ JSON classification cassé : {e}")
+                    print(raw)
+                    return None
+
+            except Exception as e:
+                print(f"[RAW {raw_id}] ⚠️ Erreur Azure classification : {e}")
+
+            wait = base_delay * (2 ** (attempt - 1))
+            wait += random.random()
+            print(f"[RAW {raw_id}] Retry classification dans {wait:.1f} sec…")
+            await asyncio.sleep(wait)
+
+        print(f"[RAW {raw_id}] ❌ Échec classification après {max_attempts} tentatives")
         return None
 
 # ========================================================================
@@ -499,11 +581,22 @@ async def handle_single_raw(
         print(f"[RAW {raw_id}] ❌ Extraction IA échouée → RAW conservé")
         return
 
+    extraction = result.get("extraction")
+    if extraction is None:
+        print(f"[RAW {raw_id}] ❌ Extraction absente du JSON IA → pas d'insertion, pas de suppression")
+        return
+
+    classification = await limited_classify(html_content, search_id, raw_id, crit, extraction)
+    if classification is None:
+        print(f"[RAW {raw_id}] ❌ Classification IA échouée → RAW conservé")
+        return
+
+    result["pertinent"] = classification.get("pertinent")
+
     if not validate_ai_json(result, raw_id):
         print(f"[RAW {raw_id}] ❌ JSON IA invalide → pas d'insertion, pas de suppression")
         return
 
-    extraction = result["extraction"]
     pertinent = result["pertinent"]
     
     
