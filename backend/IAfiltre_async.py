@@ -20,11 +20,19 @@ from dotenv import load_dotenv
 truststore.inject_into_ssl()
 load_dotenv()
 
-proxy = framatome.HTTPS_PROXY
-print("Proxy utilisé :", proxy)
+def _mask_secret(secret: str | None) -> str:
+    if not secret:
+        return "(vide)"
+    return f"{secret[:4]}****"
+
 
 subscription_key = os.getenv("AZURE_API_KEY")
-print("AZURE_API_KEY chargé :", (subscription_key or '')[:4] + "****")
+use_proxy = os.getenv("AZURE_USE_PROXY", "true").strip().lower() in {"1", "true", "yes", "on"}
+default_proxy = getattr(framatome, "HTTPS_PROXY", None)
+proxy = os.getenv("AZURE_PROXY_URL") or (default_proxy if use_proxy else None)
+
+print("Proxy utilisé :", proxy if proxy else "(désactivé)")
+print("AZURE_API_KEY chargé :", _mask_secret(subscription_key))
 
 # ========================================================================
 # OPENAI CONFIG
@@ -32,12 +40,40 @@ print("AZURE_API_KEY chargé :", (subscription_key or '')[:4] + "****")
 AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
 DEPLOYMENT = os.getenv("DEPLOYMENT")
 API_VERSION = os.getenv("API_VERSION")
+PROMPT_GEN_MAX_TOKENS = int(os.getenv("PROMPT_GEN_MAX_TOKENS", "900"))
 
-# Timeout augmenté pour éviter les timeouts proxy
-HTTP_TIMEOUT = 45.0
+missing_azure_env = [
+    name for name, value in (
+        ("AZURE_API_KEY", subscription_key),
+        ("AZURE_ENDPOINT", AZURE_ENDPOINT),
+        ("DEPLOYMENT", DEPLOYMENT),
+        ("API_VERSION", API_VERSION),
+    )
+    if not value
+]
+if missing_azure_env:
+    raise RuntimeError(
+        "Configuration Azure incomplète. Variables manquantes: "
+        + ", ".join(missing_azure_env)
+    )
+
+connect_timeout_s = float(os.getenv("AZURE_CONNECT_TIMEOUT_S", "10"))
+read_timeout_s = float(os.getenv("AZURE_READ_TIMEOUT_S", "120"))
+write_timeout_s = float(os.getenv("AZURE_WRITE_TIMEOUT_S", "30"))
+pool_timeout_s = float(os.getenv("AZURE_POOL_TIMEOUT_S", "30"))
+HTTP_TIMEOUT = httpx.Timeout(
+    connect=connect_timeout_s,
+    read=read_timeout_s,
+    write=write_timeout_s,
+    pool=pool_timeout_s,
+)
+
+transport_kwargs = {"verify": True}
+if proxy:
+    transport_kwargs["proxy"] = proxy
 
 httpx_client = httpx.AsyncClient(
-    transport=httpx.AsyncHTTPTransport(proxy=proxy, verify=True),
+    transport=httpx.AsyncHTTPTransport(**transport_kwargs),
     timeout=HTTP_TIMEOUT,
 )
 
@@ -176,7 +212,7 @@ DB_PATH = "backend/html_scrap.db"
 
 
 
-async def generate_criteres_prompt_json(search_id: int, user_description: str) -> list | None:
+async def generate_criteres_prompt_json(search_id: int, user_description: str) -> list:
     print(f"[PROMPT-GEN] Génération de critères (JSON compact) pour search_id={search_id}")
 
     SYSTEM = """
@@ -311,7 +347,7 @@ Instructions :
                 {"role": "user", "content": USER}
             ],
             response_format={"type": "json_schema", "json_schema": CRITERES_GEN_SCHEMA},
-            max_completion_tokens=2000,
+            max_completion_tokens=PROMPT_GEN_MAX_TOKENS,
         )
 
         # Debug helpful: finish_reason
@@ -334,15 +370,17 @@ Instructions :
             else:
                 print("[PROMPT-GEN] ⚠ Réponse Azure vide → retry…")
         except Exception as e:
-            print(f"[PROMPT-GEN] ⚠ Erreur Azure : {e}")
+            print(f"[PROMPT-GEN] ⚠ Erreur Azure ({type(e).__name__}) : {e!r}")
 
         wait = (2 ** (attempt - 1)) + random.random()
         print(f"[PROMPT-GEN] Retry dans {wait:.1f}s…")
         await asyncio.sleep(wait)
 
     if not raw:
-        print("[PROMPT-GEN] ❌ Toujours vide après retries → abandon.")
-        return None
+        raise TimeoutError(
+            "Azure n'a retourné aucune réponse pour la génération des mots-clés "
+            "après 3 tentatives."
+        )
 
     # Parse JSON
     try:
@@ -350,7 +388,7 @@ Instructions :
     except Exception as e:
         print(f"[PROMPT-GEN] ❌ Erreur JSON parse : {e}")
         print(raw[:300])
-        return None
+        raise ValueError("Réponse Azure non JSON pour la génération des critères.") from e
 
     # Validation strict JSON Schema
     try:
@@ -358,7 +396,9 @@ Instructions :
     except ValidationError as e:
         print(f"[PROMPT-GEN] ❌ JSON non conforme : {e.message}")
         print(raw[:300])
-        return None
+        raise ValueError(
+            f"JSON Azure non conforme au schéma de génération: {e.message}"
+        ) from e
 
     criteres = data["criteres"]
     regles = data["regles"]
@@ -398,11 +438,11 @@ Instructions :
 
     except Exception as e:
         print(f"[PROMPT-GEN] ❌ Erreur DB : {e}")
-        return None
+        raise RuntimeError("Impossible d'enregistrer les critères générés en base.") from e
     finally:
         try:
             conn.close()
-        except:
+        except Exception:
             pass
     
     normalized = []
@@ -485,7 +525,7 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                     return None
 
             except Exception as e:
-                print(f"[RAW {raw_id}] ⚠️ Erreur Azure : {e}")
+                print(f"[RAW {raw_id}] ⚠️ Erreur Azure ({type(e).__name__}) : {e!r}")
 
             # Retry
             wait = base_delay * (2 ** (attempt - 1))
@@ -540,7 +580,9 @@ async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_P
                     return None
 
             except Exception as e:
-                print(f"[RAW {raw_id}] ⚠️ Erreur Azure classification : {e}")
+                print(
+                    f"[RAW {raw_id}] ⚠️ Erreur Azure classification ({type(e).__name__}) : {e!r}"
+                )
 
             wait = base_delay * (2 ** (attempt - 1))
             wait += random.random()
