@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS recherches_jobs (
     statut TEXT DEFAULT 'pending',
     nb_trouves INTEGER DEFAULT 0,
     nb_insere INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    date_lancement TEXT DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (source_id)
         REFERENCES sources(id)
@@ -157,6 +157,26 @@ def _migrate_source_id_columns(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_recherches_jobs_date_lancement(conn: sqlite3.Connection) -> None:
+    """
+    Migration idempotente vers la colonne canonique `date_lancement` pour `recherches_jobs`.
+    - si `created_at` existe et `date_lancement` n'existe pas: ajoute `date_lancement`;
+    - recopie les données existantes de `created_at` vers `date_lancement`.
+    """
+    has_created_at = _has_column(conn, "recherches_jobs", "created_at")
+    has_date_lancement = _has_column(conn, "recherches_jobs", "date_lancement")
+
+    if has_created_at and not has_date_lancement:
+        conn.execute("ALTER TABLE recherches_jobs ADD COLUMN date_lancement TEXT")
+        conn.execute(
+            """
+            UPDATE recherches_jobs
+            SET date_lancement = created_at
+            WHERE date_lancement IS NULL
+            """
+        )
+
+
 def get_source_id_by_code(code: str, *, conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
     if not code or not code.strip():
         return None
@@ -215,6 +235,7 @@ def init_db() -> None:
         cur.execute(DDL_APPELS_OFFRES)
         cur.execute(DDL_RAW)
         _migrate_source_id_columns(conn)
+        _migrate_recherches_jobs_date_lancement(conn)
         for ddl in DDL_INDEXES:
             cur.execute(ddl)
 
@@ -236,8 +257,8 @@ def create_recherche_job(
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO recherches_jobs (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO recherches_jobs (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre, date_lancement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre)
         )
