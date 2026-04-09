@@ -40,7 +40,7 @@ print("AZURE_API_KEY chargé :", _mask_secret(subscription_key))
 AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
 DEPLOYMENT = os.getenv("DEPLOYMENT")
 API_VERSION = os.getenv("API_VERSION")
-PROMPT_GEN_MAX_TOKENS = int(os.getenv("PROMPT_GEN_MAX_TOKENS", "900"))
+PROMPT_GEN_MAX_TOKENS = int(os.getenv("PROMPT_GEN_MAX_TOKENS", "9000"))
 
 missing_azure_env = [
     name for name, value in (
@@ -506,7 +506,7 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                         {"role": "user", "content": f"search_id={search_id}\n\n{ao_text}"}
                     ],
                     response_format={"type": "json_schema", "json_schema": EXTRACTION_SCHEMA},
-                    max_completion_tokens=2000
+                    max_completion_tokens=9000
                 )
 
                 raw = response.choices[0].message.content
