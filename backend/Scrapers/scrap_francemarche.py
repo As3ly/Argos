@@ -2,6 +2,9 @@
 import time
 import random
 import re
+import os
+import threading
+from collections import deque
 import requests
 import truststore
 import framatome
@@ -9,6 +12,7 @@ import framatome
 from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from datetime import date, timedelta
+from dotenv import load_dotenv
 
 from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job
 
@@ -23,6 +27,7 @@ proxies = {
 }
 
 truststore.inject_into_ssl()
+load_dotenv()
 
 # Headers extrait de la requete sur Edge
 headers = {
@@ -43,6 +48,53 @@ headers = {
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
 }
+
+
+# ========================================================================
+# RATE LIMITING GLOBAL
+# ========================================================================
+
+DEFAULT_FRANCEMARCHE_MAX_RPM = 110
+RATE_WINDOW_SECONDS = 60.0
+
+
+def _get_francemarche_max_rpm() -> int:
+    raw = os.getenv("FRANCEMARCHE_MAX_RPM", str(DEFAULT_FRANCEMARCHE_MAX_RPM)).strip()
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError
+        return value
+    except ValueError:
+        print(
+            f"[rate-limit] FRANCEMARCHE_MAX_RPM invalide ({raw!r}), "
+            f"fallback sur {DEFAULT_FRANCEMARCHE_MAX_RPM} RPM."
+        )
+        return DEFAULT_FRANCEMARCHE_MAX_RPM
+
+
+MAX_REQUESTS_PER_MINUTE = _get_francemarche_max_rpm()
+_request_timestamps = deque()
+_rate_lock = threading.Lock()
+
+
+def _wait_for_rate_limit() -> None:
+    """Bloque jusqu'à pouvoir émettre une requête sans dépasser le quota RPM."""
+    while True:
+        with _rate_lock:
+            now = time.monotonic()
+
+            while _request_timestamps and (now - _request_timestamps[0]) >= RATE_WINDOW_SECONDS:
+                _request_timestamps.popleft()
+
+            if len(_request_timestamps) < MAX_REQUESTS_PER_MINUTE:
+                _request_timestamps.append(now)
+                return
+
+            oldest = _request_timestamps[0]
+            sleep_for = RATE_WINDOW_SECONDS - (now - oldest)
+
+        time.sleep(max(sleep_for, 0.05))
 
 
 def build_francemarche_session() -> requests.Session:
@@ -82,6 +134,8 @@ def generer_url( mots, ordre="date-cloture-desc", page=1, date_pub_min: date | N
 
 
 def recuperer_html(url, session_object):
+    _wait_for_rate_limit()
+
     try:
         reponse = session_object.get(url, timeout=10)
         reponse.raise_for_status()
