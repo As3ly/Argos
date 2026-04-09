@@ -76,6 +76,8 @@ API_VERSION=2024-10-21
 # AZURE_PROXY_URL=http://proxy:8080
 # Optionnel: surcharge DB
 # ARGOS_DB_PATH=/chemin/vers/html_scrap.db
+# Limite globale de requêtes scraper FranceMarchés (fallback: 110)
+# FRANCEMARCHE_MAX_RPM=110
 ```
 
 > Le code utilise aussi des paramètres proxy via le module `framatome`.
