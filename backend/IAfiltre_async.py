@@ -474,7 +474,15 @@ semaphore = asyncio.Semaphore(10)
 def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
     """Valide le JSON via jsonschema."""
     try:
-        jsonschema_validate(raw_json, EXTRACTION_SCHEMA["schema"])
+        extraction = raw_json.get("extraction")
+        if extraction is None:
+            raise ValidationError("'extraction' est requis")
+
+        # Validation extraction et classification séparées : depuis le refactor,
+        # le payload final contient les deux blocs et ne doit pas être validé
+        # directement contre le schéma extraction strict (additionalProperties=False).
+        jsonschema_validate({"extraction": extraction}, EXTRACTION_SCHEMA["schema"])
+
         if "pertinent" not in raw_json:
             raise ValidationError("'pertinent' est requis")
         jsonschema_validate({"pertinent": raw_json["pertinent"]}, CLASSIFICATION_SCHEMA["schema"])
