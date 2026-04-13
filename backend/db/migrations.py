@@ -118,12 +118,22 @@ def _migration_2026_04_01_recherches_jobs_date_lancement(conn: sqlite3.Connectio
         )
 
 
+def _migration_2026_04_13_recherches_jobs_warnings_json(conn: sqlite3.Connection) -> None:
+    """Ajoute recherches_jobs.warnings_json pour persister les alertes de scraping."""
+    if not _has_column(conn, "recherches_jobs", "warnings_json"):
+        conn.execute("ALTER TABLE recherches_jobs ADD COLUMN warnings_json TEXT")
+
+
 MIGRATIONS: list[tuple[str, MigrationFn]] = [
     ("2026_03_31_raw_recherches_source", _migration_2026_03_31_raw_source),
     ("2026_04_01_source_id_columns", _migration_2026_04_01_source_id_columns),
     (
         "2026_04_01_recherches_jobs_date_lancement",
         _migration_2026_04_01_recherches_jobs_date_lancement,
+    ),
+    (
+        "2026_04_13_recherches_jobs_warnings_json",
+        _migration_2026_04_13_recherches_jobs_warnings_json,
     ),
 ]
 

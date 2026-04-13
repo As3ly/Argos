@@ -101,7 +101,7 @@ def list_jobs(limit: int = 200) -> List[Dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, titre, requete, source, params, date_lancement, statut, nb_trouves, nb_insere
+            SELECT id, titre, requete, source, params, warnings_json, date_lancement, statut, nb_trouves, nb_insere
             FROM recherches_jobs
             ORDER BY date_lancement DESC
             LIMIT ?
@@ -116,7 +116,7 @@ def get_job(search_id: int) -> Optional[Dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, titre, requete, source, params, date_lancement, statut, nb_trouves, nb_insere
+            SELECT id, titre, requete, source, params, warnings_json, date_lancement, statut, nb_trouves, nb_insere
             FROM recherches_jobs
             WHERE id = ?
             LIMIT 1
@@ -760,6 +760,37 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
 
 
         ui.space().classes("h-4")
+
+        if not show_non_pertinent:
+            warning_blob = (job.get("warnings_json") or "").strip()
+            limited_searches: List[Dict[str, Any]] = []
+            warning_message = (
+                "Attention possibilité que tout les appels d'offres ne s'affiche pas car "
+                "une de vos recherche n'est pas assez précise et à générer trop d'appels "
+                "d'offres différents."
+            )
+            if warning_blob:
+                try:
+                    parsed_warning = json.loads(warning_blob)
+                    warning_message = (parsed_warning.get("message") or warning_message).strip()
+                    if isinstance(parsed_warning.get("limited_searches"), list):
+                        limited_searches = [
+                            item for item in parsed_warning["limited_searches"] if isinstance(item, dict)
+                        ]
+                except Exception:
+                    limited_searches = []
+
+            if limited_searches:
+                with ui.card().classes("w-full max-w-5xl bg-yellow-50 border border-yellow-200").style("border-radius: 12px;"):
+                    ui.label("⚠️ Attention").classes("text-yellow-900 font-semibold")
+                    ui.label(warning_message).classes("text-yellow-900 text-sm")
+                    with ui.column().classes("gap-1 mt-2"):
+                        for info in limited_searches:
+                            recherche = (info.get("recherche") or "").strip() or ", ".join(info.get("mots", []))
+                            nb_listees = info.get("nb_offres_listees")
+                            ui.label(f"• {recherche} ({nb_listees} offres listées)").classes("text-yellow-900 text-sm")
+
+                ui.space().classes("h-4")
 
         with ui.card().classes("w-full max-w-5xl").style("border-radius: 16px;"):
             with ui.row().classes("w-full items-center justify-between"):

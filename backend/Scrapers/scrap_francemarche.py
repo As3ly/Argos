@@ -3,6 +3,7 @@ import time
 import random
 import re
 import os
+import json
 import threading
 from collections import deque
 import requests
@@ -55,6 +56,7 @@ headers = {
 # ========================================================================
 
 DEFAULT_FRANCEMARCHE_MAX_RPM = 110
+MAX_OFFRES_PAR_RECHERCHE = 100
 RATE_WINDOW_SECONDS = 60.0
 
 
@@ -249,10 +251,12 @@ def scrape_francemarche_into_raw(search_id: int, mots_recherche: list, sess: req
     Met aussi à jour nb_trouves dans recherches_jobs.
     """
     liens_finaux = []
+    recherches_limitees: list[dict[str, object]] = []
 
     for mots in mots_recherche:
         flag = True
         i = 0
+        nb_offres_listees = 0
         while flag:
             cible = generer_url(mots, page=i + 1, date_pub_min=date_pub_min, date_pub_max=date_pub_max)
             print(cible)
@@ -275,6 +279,23 @@ def scrape_francemarche_into_raw(search_id: int, mots_recherche: list, sess: req
                 continue
 
             liens_finaux.extend(liens)
+            nb_offres_listees += len(liens)
+            if nb_offres_listees > MAX_OFFRES_PAR_RECHERCHE:
+                recherche_txt = " ".join(mots) if isinstance(mots, list) else str(mots)
+                recherches_limitees.append(
+                    {
+                        "recherche": recherche_txt,
+                        "mots": mots if isinstance(mots, list) else [str(mots)],
+                        "nb_offres_listees": nb_offres_listees,
+                        "seuil": MAX_OFFRES_PAR_RECHERCHE,
+                    }
+                )
+                print(
+                    "[info] Limite pagination atteinte pour la recherche "
+                    f"{recherche_txt!r}: {nb_offres_listees} offres listées."
+                )
+                flag = False
+                continue
             i += 1
 
     # Dédoublonnage
@@ -285,7 +306,20 @@ def scrape_francemarche_into_raw(search_id: int, mots_recherche: list, sess: req
             liens_uniques.append([mot, lien])
             seen.add(lien)
 
-    update_recherche_job(search_id, nb_trouves=len(liens_uniques))
+    warning_payload = {
+        "type": "pagination_limit",
+        "message": (
+            "Attention possibilité que tout les appels d'offres ne s'affiche pas car "
+            "une de vos recherche n'est pas assez précise et à générer trop d'appels "
+            "d'offres différents."
+        ),
+        "limited_searches": recherches_limitees,
+    }
+    update_recherche_job(
+        search_id,
+        nb_trouves=len(liens_uniques),
+        warnings_json=json.dumps(warning_payload, ensure_ascii=False),
+    )
 
     # Débogage (comme dans main.py)
     for links in liens_uniques[:30]:
