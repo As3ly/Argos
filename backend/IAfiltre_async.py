@@ -338,8 +338,11 @@ Instructions :
 - Génère UNIQUEMENT le JSON court attendu.
 """
 
-    async def _one_try(attempt: int):
-        print(f"[PROMPT-GEN] Appel Azure (tentative {attempt})")
+    async def _one_try(attempt: int, max_completion_tokens: int):
+        print(
+            f"[PROMPT-GEN] Appel Azure (tentative {attempt}, "
+            f"max_completion_tokens={max_completion_tokens})"
+        )
         resp = await async_client.chat.completions.create(
             model=DEPLOYMENT,
             messages=[
@@ -347,7 +350,7 @@ Instructions :
                 {"role": "user", "content": USER}
             ],
             response_format={"type": "json_schema", "json_schema": CRITERES_GEN_SCHEMA},
-            max_completion_tokens=PROMPT_GEN_MAX_TOKENS,
+            max_completion_tokens=max_completion_tokens,
         )
 
         # Debug helpful: finish_reason
@@ -362,16 +365,26 @@ Instructions :
 
     # Retry exponentiel (3 tentatives)
     raw = ""
-    for attempt in range(1, 4):
+    max_attempts = 3
+    token_step = 1000
+    token_cap = 14000
+
+    for attempt in range(1, max_attempts + 1):
+        current_tokens = min(PROMPT_GEN_MAX_TOKENS + ((attempt - 1) * token_step), token_cap)
         try:
-            raw = await _one_try(attempt)
+            raw = await _one_try(attempt, current_tokens)
             if raw:
                 break
             else:
-                print("[PROMPT-GEN] ⚠ Réponse Azure vide → retry…")
+                print(
+                    f"[PROMPT-GEN] ⚠ Réponse Azure vide → retry "
+                    f"(prochaine tentative avec tokens accrus)."
+                )
         except Exception as e:
             print(f"[PROMPT-GEN] ⚠ Erreur Azure ({type(e).__name__}) : {e!r}")
 
+        if attempt == max_attempts:
+            break
         wait = (2 ** (attempt - 1)) + random.random()
         print(f"[PROMPT-GEN] Retry dans {wait:.1f}s…")
         await asyncio.sleep(wait)
@@ -500,12 +513,19 @@ def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
 async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PERTINENCE: str):
     """Extraction structurée via Azure OpenAI avec retry exponentiel + jitter."""
     async with semaphore:
-        max_attempts = 5
+        max_attempts = 3
         base_delay = 1
+        base_max_tokens = 9000
+        token_step = 1000
+        token_cap = 14000
 
         for attempt in range(1, max_attempts + 1):
+            current_tokens = min(base_max_tokens + ((attempt - 1) * token_step), token_cap)
             try:
-                print(f"[RAW {raw_id}] Appel Azure (tentative {attempt})")
+                print(
+                    f"[RAW {raw_id}] Appel Azure (tentative {attempt}, "
+                    f"max_completion_tokens={current_tokens})"
+                )
 
                 response = await async_client.chat.completions.create(
                     model=DEPLOYMENT,
@@ -514,15 +534,18 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                         {"role": "user", "content": f"search_id={search_id}\n\n{ao_text}"}
                     ],
                     response_format={"type": "json_schema", "json_schema": EXTRACTION_SCHEMA},
-                    max_completion_tokens=9000
+                    max_completion_tokens=current_tokens
                 )
 
                 raw = response.choices[0].message.content
                 print(f"[RAW {raw_id}] Réponse Azure (100 chars) : {raw[:100]!r}")
 
                 if not raw:
-                    print(f"[RAW {raw_id}] ❌ Réponse vide Azure.")
-                    return None
+                    print(
+                        f"[RAW {raw_id}] ⚠️ Réponse vide Azure → retry "
+                        f"(prochaine tentative avec tokens accrus)."
+                    )
+                    raise ValueError("Réponse Azure vide en extraction")
 
                 try:
                     parsed = json.loads(raw)
@@ -535,6 +558,8 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
             except Exception as e:
                 print(f"[RAW {raw_id}] ⚠️ Erreur Azure ({type(e).__name__}) : {e!r}")
 
+            if attempt == max_attempts:
+                break
             # Retry
             wait = base_delay * (2 ** (attempt - 1))
             wait += random.random()
@@ -550,10 +575,17 @@ async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_P
     async with semaphore:
         max_attempts = 5
         base_delay = 1
+        base_max_tokens = 800
+        token_step = 200
+        token_cap = 2000
 
         for attempt in range(1, max_attempts + 1):
+            current_tokens = min(base_max_tokens + ((attempt - 1) * token_step), token_cap)
             try:
-                print(f"[RAW {raw_id}] Appel Azure classification (tentative {attempt})")
+                print(
+                    f"[RAW {raw_id}] Appel Azure classification (tentative {attempt}, "
+                    f"max_completion_tokens={current_tokens})"
+                )
 
                 response = await async_client.chat.completions.create(
                     model=DEPLOYMENT,
@@ -569,15 +601,18 @@ async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_P
                         }
                     ],
                     response_format={"type": "json_schema", "json_schema": CLASSIFICATION_SCHEMA},
-                    max_completion_tokens=800,
+                    max_completion_tokens=current_tokens,
                 )
 
                 raw = response.choices[0].message.content
                 print(f"[RAW {raw_id}] Réponse classification (100 chars) : {raw[:100]!r}")
 
                 if not raw:
-                    print(f"[RAW {raw_id}] ❌ Réponse vide classification.")
-                    return None
+                    print(
+                        f"[RAW {raw_id}] ⚠️ Réponse vide classification → retry "
+                        f"(prochaine tentative avec tokens accrus)."
+                    )
+                    raise ValueError("Réponse Azure vide en classification")
 
                 try:
                     parsed = json.loads(raw)
@@ -592,6 +627,8 @@ async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_P
                     f"[RAW {raw_id}] ⚠️ Erreur Azure classification ({type(e).__name__}) : {e!r}"
                 )
 
+            if attempt == max_attempts:
+                break
             wait = base_delay * (2 ** (attempt - 1))
             wait += random.random()
             print(f"[RAW {raw_id}] Retry classification dans {wait:.1f} sec…")
