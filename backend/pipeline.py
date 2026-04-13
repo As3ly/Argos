@@ -21,8 +21,7 @@ from IAfiltre_async import generate_criteres_prompt_json, process_search_id_asyn
 from db.repository import initialize_database, create_recherche_job, update_recherche_job
 
 
-# Les scrapers existent dans ton repo. En sandbox ils ne sont pas fournis,
-# donc on garde un import tolérant et un message d'erreur lisible.
+
 try:
     from Scrapers import run_all_scrapers, build_francemarche_session
 except Exception:  # pragma: no cover
