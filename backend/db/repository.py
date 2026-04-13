@@ -122,6 +122,7 @@ def update_recherche_job(
     nb_insere: Optional[int] = None,
     titre: Optional[str] = None,
     requete: Optional[str] = None,
+    warnings_json: Optional[str] = None,
 ) -> None:
     sets = []
     values = []
@@ -140,6 +141,9 @@ def update_recherche_job(
     if titre is not None:
         sets.append("titre = ?")
         values.append(titre)
+    if warnings_json is not None:
+        sets.append("warnings_json = ?")
+        values.append(warnings_json)
 
     if not sets:
         return

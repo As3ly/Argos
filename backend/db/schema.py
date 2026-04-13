@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS recherches_jobs (
     source TEXT,
     source_id INTEGER,
     params TEXT,
+    warnings_json TEXT,
     statut TEXT DEFAULT 'pending',
     nb_trouves INTEGER DEFAULT 0,
     nb_insere INTEGER DEFAULT 0,
