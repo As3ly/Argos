@@ -9,7 +9,7 @@ import framatome
 import truststore
 from urllib.parse import urlparse
 
-from db.repository import safe_insert, safe_delete_raw
+from db.repository import DB_PATH, safe_insert, safe_delete_raw
 from jsonschema import validate as jsonschema_validate, ValidationError
 from openai import AsyncAzureOpenAI
 from dotenv import load_dotenv
@@ -26,63 +26,90 @@ def _mask_secret(secret: str | None) -> str:
     return f"{secret[:4]}****"
 
 
-subscription_key = os.getenv("AZURE_API_KEY")
-use_proxy = os.getenv("AZURE_USE_PROXY", "true").strip().lower() in {"1", "true", "yes", "on"}
-default_proxy = getattr(framatome, "HTTPS_PROXY", None)
-proxy = os.getenv("AZURE_PROXY_URL") or (default_proxy if use_proxy else None)
-
-print("Proxy utilisé :", proxy if proxy else "(désactivé)")
-print("AZURE_API_KEY chargé :", _mask_secret(subscription_key))
-
 # ========================================================================
 # OPENAI CONFIG
 # ========================================================================
-AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
-DEPLOYMENT = os.getenv("DEPLOYMENT")
-API_VERSION = os.getenv("API_VERSION")
 PROMPT_GEN_MAX_TOKENS = int(os.getenv("PROMPT_GEN_MAX_TOKENS", "9000"))
 
-missing_azure_env = [
-    name for name, value in (
-        ("AZURE_API_KEY", subscription_key),
-        ("AZURE_ENDPOINT", AZURE_ENDPOINT),
-        ("DEPLOYMENT", DEPLOYMENT),
-        ("API_VERSION", API_VERSION),
+_async_client: AsyncAzureOpenAI | None = None
+_deployment: str | None = None
+
+
+def _get_azure_config() -> tuple[str, str, str, str, str | None]:
+    """Charge la configuration Azure à la demande, sans faire planter l'import du module."""
+    subscription_key = os.getenv("AZURE_API_KEY")
+    azure_endpoint = os.getenv("AZURE_ENDPOINT")
+    deployment = os.getenv("DEPLOYMENT")
+    api_version = os.getenv("API_VERSION")
+
+    missing_azure_env = [
+        name for name, value in (
+            ("AZURE_API_KEY", subscription_key),
+            ("AZURE_ENDPOINT", azure_endpoint),
+            ("DEPLOYMENT", deployment),
+            ("API_VERSION", api_version),
+        )
+        if not value
+    ]
+    if missing_azure_env:
+        raise RuntimeError(
+            "Configuration Azure incomplète. Variables manquantes: "
+            + ", ".join(missing_azure_env)
+        )
+
+    use_proxy = os.getenv("AZURE_USE_PROXY", "true").strip().lower() in {"1", "true", "yes", "on"}
+    default_proxy = getattr(framatome, "HTTPS_PROXY", None)
+    proxy = os.getenv("AZURE_PROXY_URL") or (default_proxy if use_proxy else None)
+
+    return subscription_key, azure_endpoint, deployment, api_version, proxy
+
+
+def get_async_client() -> AsyncAzureOpenAI:
+    """Construit le client Azure OpenAI au premier appel réel à l'IA."""
+    global _async_client, _deployment
+    if _async_client is not None:
+        return _async_client
+
+    subscription_key, azure_endpoint, deployment, api_version, proxy = _get_azure_config()
+
+    print("Proxy utilisé :", proxy if proxy else "(désactivé)")
+    print("AZURE_API_KEY chargé :", _mask_secret(subscription_key))
+
+    connect_timeout_s = float(os.getenv("AZURE_CONNECT_TIMEOUT_S", "10"))
+    read_timeout_s = float(os.getenv("AZURE_READ_TIMEOUT_S", "120"))
+    write_timeout_s = float(os.getenv("AZURE_WRITE_TIMEOUT_S", "30"))
+    pool_timeout_s = float(os.getenv("AZURE_POOL_TIMEOUT_S", "30"))
+    http_timeout = httpx.Timeout(
+        connect=connect_timeout_s,
+        read=read_timeout_s,
+        write=write_timeout_s,
+        pool=pool_timeout_s,
     )
-    if not value
-]
-if missing_azure_env:
-    raise RuntimeError(
-        "Configuration Azure incomplète. Variables manquantes: "
-        + ", ".join(missing_azure_env)
+
+    transport_kwargs = {"verify": True}
+    if proxy:
+        transport_kwargs["proxy"] = proxy
+
+    httpx_client = httpx.AsyncClient(
+        transport=httpx.AsyncHTTPTransport(**transport_kwargs),
+        timeout=http_timeout,
     )
 
-connect_timeout_s = float(os.getenv("AZURE_CONNECT_TIMEOUT_S", "10"))
-read_timeout_s = float(os.getenv("AZURE_READ_TIMEOUT_S", "120"))
-write_timeout_s = float(os.getenv("AZURE_WRITE_TIMEOUT_S", "30"))
-pool_timeout_s = float(os.getenv("AZURE_POOL_TIMEOUT_S", "30"))
-HTTP_TIMEOUT = httpx.Timeout(
-    connect=connect_timeout_s,
-    read=read_timeout_s,
-    write=write_timeout_s,
-    pool=pool_timeout_s,
-)
+    _deployment = deployment
+    _async_client = AsyncAzureOpenAI(
+        api_key=subscription_key,
+        azure_endpoint=azure_endpoint,
+        api_version=api_version,
+        http_client=httpx_client,
+    )
+    return _async_client
 
-transport_kwargs = {"verify": True}
-if proxy:
-    transport_kwargs["proxy"] = proxy
 
-httpx_client = httpx.AsyncClient(
-    transport=httpx.AsyncHTTPTransport(**transport_kwargs),
-    timeout=HTTP_TIMEOUT,
-)
-
-async_client = AsyncAzureOpenAI(
-    api_key=subscription_key,
-    azure_endpoint=AZURE_ENDPOINT,
-    api_version=API_VERSION,
-    http_client=httpx_client
-)
+def get_deployment() -> str:
+    if _deployment is None:
+        get_async_client()
+    assert _deployment is not None
+    return _deployment
 
 # ========================================================================
 # JSON SCHEMA (inchangé)
@@ -207,9 +234,6 @@ RÈGLES :
 # ========================================================================
 # Génèration Prompt
 # ========================================================================
-
-DB_PATH = "backend/html_scrap.db"
-
 
 
 async def generate_criteres_prompt_json(search_id: int, user_description: str) -> list:
@@ -343,8 +367,8 @@ Instructions :
             f"[PROMPT-GEN] Appel Azure (tentative {attempt}, "
             f"max_completion_tokens={max_completion_tokens})"
         )
-        resp = await async_client.chat.completions.create(
-            model=DEPLOYMENT,
+        resp = await get_async_client().chat.completions.create(
+            model=get_deployment(),
             messages=[
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": USER}
@@ -527,8 +551,8 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                     f"max_completion_tokens={current_tokens})"
                 )
 
-                response = await async_client.chat.completions.create(
-                    model=DEPLOYMENT,
+                response = await get_async_client().chat.completions.create(
+                    model=get_deployment(),
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT_EXTRACTION + CRITERES_PERTINENCE},
                         {"role": "user", "content": f"search_id={search_id}\n\n{ao_text}"}
@@ -587,8 +611,8 @@ async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_P
                     f"max_completion_tokens={current_tokens})"
                 )
 
-                response = await async_client.chat.completions.create(
-                    model=DEPLOYMENT,
+                response = await get_async_client().chat.completions.create(
+                    model=get_deployment(),
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT_CLASSIFICATION + CRITERES_PERTINENCE},
                         {
@@ -701,7 +725,7 @@ async def handle_single_raw(
 # TRAITEMENT GLOBAL
 # ========================================================================
 async def process_search_id_async(search_id: int, user_description: str):
-    conn = sqlite3.connect("backend/html_scrap.db", timeout=30)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
     cur = conn.cursor()
