@@ -4,7 +4,7 @@
 import sqlite3
 from pathlib import Path
 
-DB_PATH = (Path(__file__).resolve().parents[1] / "html_scrap.db").resolve()
+DB_PATH = (Path(__file__).resolve().parents[2] / "html_scrap.db").resolve()
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:

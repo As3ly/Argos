@@ -100,6 +100,14 @@ def _migration_2026_04_01_source_id_columns(conn: sqlite3.Connection) -> None:
         "UPDATE appels_offres SET source_id = ? WHERE source_id IS NULL",
         (source_id,),
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_source "
+        "ON raw_recherches(search_id, source_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ao_search_source "
+        "ON appels_offres(search_id, source_id)"
+    )
 
 
 def _migration_2026_04_01_recherches_jobs_date_lancement(conn: sqlite3.Connection) -> None:
@@ -124,6 +132,28 @@ def _migration_2026_04_13_recherches_jobs_warnings_json(conn: sqlite3.Connection
         conn.execute("ALTER TABLE recherches_jobs ADD COLUMN warnings_json TEXT")
 
 
+def _migration_2026_04_14_appels_offres_pertinent(conn: sqlite3.Connection) -> None:
+    """Ajoute appels_offres.pertinent et backfill depuis le score historique."""
+    if not _has_column(conn, "appels_offres", "pertinent"):
+        conn.execute("ALTER TABLE appels_offres ADD COLUMN pertinent INTEGER")
+
+    conn.execute(
+        """
+        UPDATE appels_offres
+        SET pertinent = CASE
+            WHEN score_ia IS NULL THEN NULL
+            WHEN score_ia > 0.45 THEN 1
+            ELSE 0
+        END
+        WHERE pertinent IS NULL
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ao_search_pertinent "
+        "ON appels_offres(search_id, pertinent)"
+    )
+
+
 MIGRATIONS: list[tuple[str, MigrationFn]] = [
     ("2026_03_31_raw_recherches_source", _migration_2026_03_31_raw_source),
     ("2026_04_01_source_id_columns", _migration_2026_04_01_source_id_columns),
@@ -134,6 +164,10 @@ MIGRATIONS: list[tuple[str, MigrationFn]] = [
     (
         "2026_04_13_recherches_jobs_warnings_json",
         _migration_2026_04_13_recherches_jobs_warnings_json,
+    ),
+    (
+        "2026_04_14_appels_offres_pertinent",
+        _migration_2026_04_14_appels_offres_pertinent,
     ),
 ]
 
