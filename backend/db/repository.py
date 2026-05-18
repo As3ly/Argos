@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterable, Optional
 from .migrations import apply_migrations
 from .schema import create_base_schema
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = Path(os.getenv("ARGOS_DB_PATH", str(BASE_DIR / "html_scrap.db"))).resolve()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = Path(os.getenv("ARGOS_DB_PATH", str(PROJECT_ROOT / "html_scrap.db"))).resolve()
 
 
 def get_conn() -> sqlite3.Connection:
@@ -18,6 +18,51 @@ def get_conn() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+
+
+_RECHERCHE_JOB_ORDER_BY = {
+    "date_lancement DESC",
+    "date_lancement ASC",
+    "id DESC",
+    "id ASC",
+}
+
+_APPEL_OFFRE_ORDER_BY = {
+    "date_ajout DESC",
+    "date_ajout ASC",
+    "score_ia DESC",
+    "score_ia ASC",
+    "score_ia DESC, date_ajout DESC",
+    "score_ia ASC, date_ajout DESC",
+}
+
+
+def _sanitize_order_by(order_by: str, allowed: set[str], default: str) -> str:
+    """Retourne une clause ORDER BY sûre parmi une liste blanche stricte."""
+    normalized = " ".join((order_by or default).strip().split())
+    normalized = normalized.replace(" ,", ",").replace(", ", ", ")
+    if normalized not in allowed:
+        return default
+    return normalized
+
+
+def _pertinent_to_db(pertinent: Optional[bool]) -> Optional[int]:
+    if pertinent is None:
+        return None
+    return 1 if bool(pertinent) else 0
+
+
+def _increment_nb_insere(conn: sqlite3.Connection, search_id: int) -> None:
+    conn.execute(
+        """
+        UPDATE recherches_jobs
+        SET nb_insere = COALESCE(nb_insere, 0) + 1
+        WHERE id = ?
+        """,
+        (search_id,),
+    )
 
 
 def get_source_id_by_code(code: str, *, conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
@@ -154,9 +199,14 @@ def update_recherche_job(
 
 
 def list_recherche_jobs(limit: int = 50, order_by: str = "date_lancement DESC") -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(
+        order_by,
+        _RECHERCHE_JOB_ORDER_BY,
+        "date_lancement DESC",
+    )
     with closing(get_conn()) as conn:
         rows = conn.execute(
-            f"SELECT * FROM recherches_jobs ORDER BY {order_by} LIMIT ?", (limit,)
+            f"SELECT * FROM recherches_jobs ORDER BY {safe_order_by} LIMIT ?", (limit,)
         ).fetchall()
         for row in rows:
             yield dict(row)
@@ -210,12 +260,12 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, sourc
 
         cur.execute(
             """
-            INSERT INTO appels_offres (
+            INSERT OR IGNORE INTO appels_offres (
                 titre, source, source_id, date_publication, date_cloture, lieu, budget,
-                type_marche, acheteur, reference, score_ia, tags, raison,
+                type_marche, acheteur, reference, score_ia, pertinent, tags, raison,
                 secteur, mot_cle, lien, search_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 extraction["titre"],
@@ -229,6 +279,7 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, sourc
                 extraction["acheteur"],
                 extraction["reference"],
                 extraction["score_ia"],
+                _pertinent_to_db(pertinent),
                 extraction["tags"],
                 extraction["raison"],
                 extraction["secteur"],
@@ -238,11 +289,14 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, sourc
             ),
         )
 
+        if cur.rowcount == 0:
+            print(f"[RAW {raw_id}] ⚠ Doublon détecté → ignoré")
+            conn.commit()
+            return
+
+        _increment_nb_insere(conn, search_id)
         conn.commit()
         print(f"[RAW {raw_id}] ✔ INSERT OK (pertinent={pertinent})")
-
-    except sqlite3.IntegrityError:
-        print(f"[RAW {raw_id}] ⚠ Doublon détecté → ignoré")
 
     except Exception as e:
         print(f"[RAW {raw_id}] ❌ Erreur INSERT : {e}")
@@ -253,6 +307,7 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, sourc
 
 
 def safe_delete_raw(raw_id: int, search_id: int):
+    conn = None
     try:
         conn = sqlite3.connect(DB_PATH, timeout=30.0)
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -268,7 +323,8 @@ def safe_delete_raw(raw_id: int, search_id: int):
         print(f"[RAW {raw_id}] ❌ Erreur suppression RAW : {e}")
 
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def add_appel_offre(
@@ -284,6 +340,7 @@ def add_appel_offre(
     acheteur: Optional[str] = None,
     reference: Optional[str] = None,
     score_ia: Optional[float] = None,
+    pertinent: Optional[bool] = None,
     tags: Optional[str] = None,
     raison: Optional[str] = None,
     secteur: Optional[str] = None,
@@ -306,14 +363,18 @@ def add_appel_offre(
             """
             INSERT OR IGNORE INTO appels_offres
             (titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
-             acheteur, reference, score_ia, tags, raison, secteur, mot_cle, lien, search_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             acheteur, reference, score_ia, pertinent, tags, raison, secteur, mot_cle, lien, search_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
-                acheteur, reference, score_ia, tags, raison, secteur, mot_cle, lien, search_id
+                acheteur, reference, score_ia,
+                _pertinent_to_db(pertinent if pertinent is not None else (score_ia > 0.45 if score_ia is not None else None)),
+                tags, raison, secteur, mot_cle, lien, search_id
             )
         )
+        if cur.rowcount > 0:
+            _increment_nb_insere(conn, search_id)
         cur.execute("SELECT id FROM appels_offres WHERE lien = ? LIMIT 1", (lien,))
         row = cur.fetchone()
         return int(row["id"]) if row else -1
@@ -328,36 +389,38 @@ def get_appel_offre_by_lien(lien: str) -> Optional[Dict[str, Any]]:
 
 
 def list_appels_offres_pert(*, search_id: Optional[int] = None, limit: int = 50, order_by: str = "date_ajout DESC") -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(order_by, _APPEL_OFFRE_ORDER_BY, "date_ajout DESC")
     with closing(get_conn()) as conn:
         cur = conn.cursor()
         if search_id:
             query = f"""
                 SELECT * FROM appels_offres
-                WHERE search_id = ? AND score_ia > 0.45
-                ORDER BY {order_by}
+                WHERE search_id = ? AND pertinent = 1
+                ORDER BY {safe_order_by}
                 LIMIT ?
             """
             cur.execute(query, (search_id, limit))
         else:
-            query = f"SELECT * FROM appels_offres ORDER BY {order_by} LIMIT ?"
+            query = f"SELECT * FROM appels_offres WHERE pertinent = 1 ORDER BY {safe_order_by} LIMIT ?"
             cur.execute(query, (limit,))
         for r in cur.fetchall():
             yield dict(r)
 
 
 def list_appels_offres_non_pert(*, search_id: Optional[int] = None, limit: int = 50, order_by: str = "date_ajout DESC") -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(order_by, _APPEL_OFFRE_ORDER_BY, "date_ajout DESC")
     with closing(get_conn()) as conn:
         cur = conn.cursor()
         if search_id:
             query = f"""
                 SELECT * FROM appels_offres
-                WHERE search_id = ? AND score_ia <= 0.45
-                ORDER BY {order_by}
+                WHERE search_id = ? AND pertinent = 0
+                ORDER BY {safe_order_by}
                 LIMIT ?
             """
             cur.execute(query, (search_id, limit))
         else:
-            query = f"SELECT * FROM appels_offres ORDER BY {order_by} LIMIT ?"
+            query = f"SELECT * FROM appels_offres WHERE pertinent = 0 ORDER BY {safe_order_by} LIMIT ?"
             cur.execute(query, (limit,))
         for r in cur.fetchall():
             yield dict(r)

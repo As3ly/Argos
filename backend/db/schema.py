@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS appels_offres (
     acheteur TEXT,
     reference TEXT,
     score_ia REAL,
+    pertinent INTEGER,
     tags TEXT,
     raison TEXT,
     secteur TEXT,
@@ -87,8 +88,6 @@ DDL_INDEXES = [
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ao_lien ON appels_offres(lien)",
     "CREATE INDEX IF NOT EXISTS idx_ao_search_id ON appels_offres(search_id)",
     "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_lien ON raw_recherches(search_id, lien)",
-    "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_source ON raw_recherches(search_id, source_id)",
-    "CREATE INDEX IF NOT EXISTS idx_ao_search_source ON appels_offres(search_id, source_id)",
 ]
 
 
