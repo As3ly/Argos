@@ -127,6 +127,13 @@ def initialize_database() -> None:
             active=1,
             conn=conn,
         )
+        ensure_source(
+            "boamp",
+            label="BOAMP",
+            base_url="https://www.boamp.fr/",
+            active=1,
+            conn=conn,
+        )
 
 
 def init_db() -> None:
