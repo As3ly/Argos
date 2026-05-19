@@ -11,6 +11,11 @@ API_BASE = f"{BASE_URL}/api/explore/v2.1"
 DEFAULT_DATASET = "avis"
 DEFAULT_LIMIT = 100
 MAX_OFFRES_PAR_RECHERCHE = 300
+# Proxy entreprise BOAMP (à personnaliser localement si nécessaire)
+BOAMP_PROXIES = {
+    "http": "",
+    "https": "",
+}
 
 
 def _build_where_clause(*, keywords: str, date_pub_min: date, date_pub_max: date) -> str:
@@ -78,6 +83,8 @@ def scrape_boamp_into_raw(
 ) -> None:
     # Session locale: ce scraper n'utilise pas la session FranceMarchés.
     local_sess = requests.Session()
+    if BOAMP_PROXIES.get("http") or BOAMP_PROXIES.get("https"):
+        local_sess.proxies = BOAMP_PROXIES
     today = date.today()
     if date_pub_max is None:
         date_pub_max = today
