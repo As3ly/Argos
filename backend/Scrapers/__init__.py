@@ -1,11 +1,13 @@
 from .scrap_francemarche import build_francemarche_session, scrape_francemarche_into_raw
 from .scrap_boamp import scrape_boamp_into_raw
+from .scrap_ted import scrape_ted_into_raw
 from datetime import date
 # from .aws import scrape_aws_into_raw
 
 SCRAPERS = [
     ("francemarches", scrape_francemarche_into_raw),
     ("boamp", scrape_boamp_into_raw),
+    ("ted", scrape_ted_into_raw),
     # ("aws", scrape_aws_into_raw),
 ]
 
