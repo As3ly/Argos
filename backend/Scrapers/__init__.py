@@ -5,10 +5,9 @@ from datetime import date
 # from .aws import scrape_aws_into_raw
 
 SCRAPERS = [
-    ("francemarches", scrape_francemarche_into_raw),
+    #("francemarches", scrape_francemarche_into_raw),
     ("boamp", scrape_boamp_into_raw),
     ("ted", scrape_ted_into_raw),
-    # ("aws", scrape_aws_into_raw),
 ]
 
 def run_all_scrapers(search_id: int, mots_recherche: list, sess, *, continue_on_error: bool = True, date_pub_min: date, date_pub_max: date):
