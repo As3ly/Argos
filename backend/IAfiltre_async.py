@@ -5,7 +5,6 @@ import random
 import sqlite3
 import asyncio
 import httpx
-import framatome
 import truststore
 from urllib.parse import urlparse
 
@@ -58,7 +57,7 @@ def _get_azure_config() -> tuple[str, str, str, str, str | None]:
         )
 
     use_proxy = os.getenv("AZURE_USE_PROXY", "true").strip().lower() in {"1", "true", "yes", "on"}
-    default_proxy = getattr(framatome, "HTTPS_PROXY", None)
+    default_proxy = "http://163.116.128.80:8080"
     proxy = os.getenv("AZURE_PROXY_URL") or (default_proxy if use_proxy else None)
 
     return subscription_key, azure_endpoint, deployment, api_version, proxy

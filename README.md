@@ -80,7 +80,7 @@ API_VERSION=2024-10-21
 # FRANCEMARCHE_MAX_RPM=110
 ```
 
-> Le code utilise aussi des paramètres proxy via le module `framatome`.
+> Les paramètres proxy sont configurés en dur dans le code (HTTP/HTTPS).
 
 ---
 
