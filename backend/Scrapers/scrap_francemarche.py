@@ -8,7 +8,6 @@ import threading
 from collections import deque
 import requests
 import truststore
-import framatome
 
 from urllib.parse import urlencode
 from bs4 import BeautifulSoup
@@ -23,8 +22,8 @@ from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherc
 # ========================================================================
 
 proxies = {
-    "http": framatome.HTTP_PROXY,
-    "https": framatome.HTTPS_PROXY,
+    "http": "http://163.116.128.80:8080",
+    "https": "http://163.116.128.80:8080",
 }
 
 truststore.inject_into_ssl()

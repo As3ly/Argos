@@ -28,7 +28,6 @@ from typing import Any
 
 import requests
 import truststore
-import framatome
 
 
 # Permet l'import de backend/inspect_db.py quand le script est lancé depuis la racine.
@@ -63,8 +62,8 @@ HARD_CHALLENGE_MARKERS = [
 
 
 FRAMATOME_PROXIES = {
-    "http": framatome.HTTP_PROXY,
-    "https": framatome.HTTPS_PROXY,
+    "http": "http://163.116.128.80:8080",
+    "https": "http://163.116.128.80:8080",
 }
 
 truststore.inject_into_ssl()

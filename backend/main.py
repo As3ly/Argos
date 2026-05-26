@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["requests", "beautifulsoup4", "truststore", "framatome", "httpx", "jsonschema", "openai", "dotenv"]
+# dependencies = ["requests", "beautifulsoup4", "truststore", "httpx", "jsonschema", "openai", "dotenv"]
 # ///
 
 import re

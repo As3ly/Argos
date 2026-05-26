@@ -19,12 +19,6 @@ except ImportError:
     # En local hors environnement entreprise, le script doit rester importable.
     pass
 
-try:
-    import framatome
-except ImportError:
-    framatome = None
-
-
 _LOGGER = logging.getLogger(__name__)
 
 API_URL = "https://api.ted.europa.eu/v3/notices/search"
@@ -52,19 +46,12 @@ TED_FIELDS = [
 ]
 
 
-def _get_proxy_value(name: str) -> str | None:
-    """Return proxy from framatome module first, then from environment variables."""
-    if framatome is not None:
-        value = getattr(framatome, name, None)
-        if value:
-            return value
-
-    return os.environ.get(name)
-
+HTTP_PROXY = "http://163.116.128.80:8080"
+HTTPS_PROXY = "http://163.116.128.80:8080"
 
 TED_PROXIES = {
-    "http": _get_proxy_value("HTTP_PROXY"),
-    "https": _get_proxy_value("HTTPS_PROXY"),
+    "http": HTTP_PROXY,
+    "https": HTTPS_PROXY,
 }
 
 
