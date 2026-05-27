@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from datetime import date, timedelta
 
-from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job
+from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
 
 
 # ========================================================================
@@ -269,7 +269,7 @@ def scrape_francemarche_into_raw(
             liens_uniques.append([mot, lien])
             seen.add(lien)
 
-    update_recherche_job(search_id, nb_trouves=len(liens_uniques))
+    increment_recherche_job_counts(search_id, nb_trouves_delta=len(liens_uniques))
 
     for links in liens_uniques[:30]:
         print("Lien:", links)

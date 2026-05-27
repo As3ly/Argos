@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from datetime import date, timedelta
 from dotenv import load_dotenv
 
-from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job
+from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
 
 
 # ========================================================================
@@ -316,9 +316,9 @@ def scrape_francemarche_into_raw(search_id: int, mots_recherche: list, sess: req
     }
     update_recherche_job(
         search_id,
-        nb_trouves=len(liens_uniques),
         warnings_json=json.dumps(warning_payload, ensure_ascii=False),
     )
+    increment_recherche_job_counts(search_id, nb_trouves_delta=len(liens_uniques))
 
     # Débogage (comme dans main.py)
     for links in liens_uniques[:30]:
