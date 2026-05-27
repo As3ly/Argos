@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 
-from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job
+from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
 
 try:
     import truststore
@@ -272,6 +272,6 @@ def scrape_boamp_into_raw(
 
     update_recherche_job(
         search_id,
-        nb_trouves=nb_inserts,
         warnings_json=json.dumps(warning_payload, ensure_ascii=False),
     )
+    increment_recherche_job_counts(search_id, nb_trouves_delta=nb_inserts)

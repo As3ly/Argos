@@ -54,15 +54,40 @@ def _pertinent_to_db(pertinent: Optional[bool]) -> Optional[int]:
     return 1 if bool(pertinent) else 0
 
 
-def _increment_nb_insere(conn: sqlite3.Connection, search_id: int) -> None:
+def _increment_job_counts(
+    conn: sqlite3.Connection,
+    search_id: int,
+    *,
+    nb_trouves_delta: int = 0,
+    nb_insere_delta: int = 0,
+) -> None:
     conn.execute(
         """
         UPDATE recherches_jobs
-        SET nb_insere = COALESCE(nb_insere, 0) + 1
+        SET
+            nb_trouves = COALESCE(nb_trouves, 0) + ?,
+            nb_insere = COALESCE(nb_insere, 0) + ?
         WHERE id = ?
         """,
-        (search_id,),
+        (nb_trouves_delta, nb_insere_delta, search_id),
     )
+
+
+def increment_recherche_job_counts(
+    search_id: int,
+    *,
+    nb_trouves_delta: int = 0,
+    nb_insere_delta: int = 0,
+) -> None:
+    if nb_trouves_delta == 0 and nb_insere_delta == 0:
+        return
+    with closing(get_conn()) as conn, conn:
+        _increment_job_counts(
+            conn,
+            search_id,
+            nb_trouves_delta=nb_trouves_delta,
+            nb_insere_delta=nb_insere_delta,
+        )
 
 
 def get_source_id_by_code(code: str, *, conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
@@ -301,7 +326,7 @@ def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, sourc
             conn.commit()
             return
 
-        _increment_nb_insere(conn, search_id)
+        _increment_job_counts(conn, search_id, nb_insere_delta=1)
         conn.commit()
         print(f"[RAW {raw_id}] ✔ INSERT OK (pertinent={pertinent})")
 
@@ -381,7 +406,7 @@ def add_appel_offre(
             )
         )
         if cur.rowcount > 0:
-            _increment_nb_insere(conn, search_id)
+            _increment_job_counts(conn, search_id, nb_insere_delta=1)
         cur.execute("SELECT id FROM appels_offres WHERE lien = ? LIMIT 1", (lien,))
         row = cur.fetchone()
         return int(row["id"]) if row else -1
