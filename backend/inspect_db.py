@@ -2,7 +2,7 @@
 import sqlite3, os
 from pathlib import Path
 from contextlib import closing
-from typing import Optional, Dict, Any, Iterable
+from typing import Optional, Dict, Any, Iterable, Sequence
 
 # Base: dossier de ce fichier (backend/)
 BASE_DIR = Path(__file__).resolve().parent
@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS recherches_jobs (
     titre TEXT,
     requete TEXT NOT NULL,
     source TEXT,
+    params TEXT,
+    date_lancement TEXT DEFAULT CURRENT_TIMESTAMP,
     statut TEXT DEFAULT 'pending',
     nb_trouves INTEGER DEFAULT 0,
     nb_insere INTEGER DEFAULT 0,
@@ -87,10 +89,29 @@ def init_db() -> None:
     with closing(get_conn()) as conn, conn:
         cur = conn.cursor()
         cur.execute(DDL_RECHERCHES_JOBS)
+        _ensure_recherches_jobs_columns(cur)
         cur.execute(DDL_APPELS_OFFRES)
         cur.execute(DDL_RAW)
         for ddl in DDL_INDEXES:
             cur.execute(ddl)
+
+
+def _ensure_recherches_jobs_columns(cur: sqlite3.Cursor) -> None:
+    """Ajoute les colonnes attendues par l'UI sur les bases déjà créées."""
+    existing = {row[1] for row in cur.execute("PRAGMA table_info(recherches_jobs)").fetchall()}
+
+    if "params" not in existing:
+        cur.execute("ALTER TABLE recherches_jobs ADD COLUMN params TEXT")
+
+    if "date_lancement" not in existing:
+        cur.execute("ALTER TABLE recherches_jobs ADD COLUMN date_lancement TEXT")
+        cur.execute(
+            """
+            UPDATE recherches_jobs
+            SET date_lancement = COALESCE(created_at, CURRENT_TIMESTAMP)
+            WHERE date_lancement IS NULL
+            """
+        )
 
 
 def create_recherche_job(
@@ -115,6 +136,18 @@ def create_recherche_job(
             (requete, source, params, statut, nb_trouves, nb_insere, titre)
         )
         return cur.lastrowid
+
+
+def delete_recherche_jobs(search_ids: Sequence[int]) -> int:
+    ids = sorted({int(search_id) for search_id in search_ids if int(search_id) > 0})
+    if not ids:
+        return 0
+
+    placeholders = ",".join("?" for _ in ids)
+    with closing(get_conn()) as conn, conn:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM recherches_jobs WHERE id IN ({placeholders})", ids)
+        return cur.rowcount
 
 def inserer_raw_recherche(
     *,

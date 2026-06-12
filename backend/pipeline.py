@@ -24,10 +24,11 @@ from inspect_db import init_db, create_recherche_job, update_recherche_job
 # Les scrapers existent dans ton repo. En sandbox ils ne sont pas fournis,
 # donc on garde un import tolérant et un message d'erreur lisible.
 try:
-    from Scrapers import run_all_scrapers, build_francemarche_session
+    from Scrapers import build_francemarche_session, list_scraper_names, run_all_scrapers
 except Exception:  # pragma: no cover
     run_all_scrapers = None
     build_francemarche_session = None
+    list_scraper_names = None
 
 
 MotsRecherche = List[List[str]]
@@ -69,6 +70,12 @@ def create_job_for_prompt(*, source: str, statut: str = "en_cours") -> int:
     )
 
 
+def get_available_scrapers() -> List[str]:
+    if list_scraper_names is None:
+        return []
+    return list_scraper_names()
+
+
 async def generate_keywords(*, search_id: int, prompt_client: str) -> KeywordsResult:
     """Appel LLM async: génère mots-clés + meta_prompt."""
     update_recherche_job(search_id, statut="generation_mots_cle")
@@ -93,6 +100,7 @@ async def run_full_pipeline(
     meta_prompt: str,
     date_pub_min: date | str | None = None,
     date_pub_max: date | str | None = None,
+    selected_sites: Sequence[str] | None = None,
 ) -> None:
     """Lance scraping + tri IA sans bloquer l'event loop."""
 
@@ -101,6 +109,10 @@ async def run_full_pipeline(
         raise RuntimeError(
             "Module 'Scrapers' introuvable. Vérifie que ton projet contient Scrapers.py / package Scrapers."
         )
+
+    if selected_sites is not None and not selected_sites:
+        update_recherche_job(search_id, statut="erreur_scraper")
+        raise ValueError("Aucun site sélectionné pour le scraping.")
 
     # 1) persist requête + statut
     requete_str = mots_recherche_to_requete(mots_recherche)
@@ -118,6 +130,7 @@ async def run_full_pipeline(
         sess=sess,
         date_pub_min=parsed_date_pub_min,
         date_pub_max=parsed_date_pub_max,
+        selected_sites=selected_sites,
     )
 
     # 3) tri IA (async)
