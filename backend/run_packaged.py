@@ -1,32 +1,69 @@
 from __future__ import annotations
 
 import os
+import sys
+import traceback
+import webbrowser
 from pathlib import Path
+from threading import Timer
+from multiprocessing import freeze_support
 
-from db.repository import initialize_database
-from ui_app import ui
+
+def _runtime_dir() -> Path:
+    base_dir = Path(os.getenv("LOCALAPPDATA", Path.home())) / "Argos"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir
+
+
+def _log(message: str) -> None:
+    log_path = _runtime_dir() / "argos_startup.log"
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(message + "\n")
+    print(message, flush=True)
 
 
 def _ensure_clean_runtime_db() -> Path:
-    base_dir = Path(os.getenv("LOCALAPPDATA", Path.home())) / "Argos"
-    base_dir.mkdir(parents=True, exist_ok=True)
-
+    base_dir = _runtime_dir()
     db_path = base_dir / "html_scrap.db"
-
-    # Force l'application à utiliser une BDD utilisateur,
-    # pas une BDD embarquée dans le .exe.
     os.environ["ARGOS_DB_PATH"] = str(db_path)
-
     return db_path
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    _ensure_clean_runtime_db()
-    initialize_database()
+    freeze_support()
 
-    ui.run(
-        title="Argos",
-        reload=False,
-        native=False,
-        port=8080,
-    )
+    try:
+        _log("=== START ARGOS ===")
+
+        db_path = _ensure_clean_runtime_db()
+        _log(f"DB PATH = {db_path}")
+
+        _log("IMPORT initialize_database...")
+        from db.repository import initialize_database
+
+        _log("IMPORT ui...")
+        from ui_app import ui
+
+        _log("INITIALIZE DATABASE...")
+        initialize_database()
+        _log("DATABASE OK")
+
+        url = "http://127.0.0.1:8080"
+        _log(f"STARTING NICEGUI ON {url}")
+
+        Timer(2.0, lambda: webbrowser.open(url)).start()
+
+        ui.run(
+            title="Argos",
+            reload=False,
+            native=False,
+            host="127.0.0.1",
+            port=8080,
+            show=False,
+        )
+
+    except Exception:
+        error = traceback.format_exc()
+        _log("=== ERROR ===")
+        _log(error)
+        raise

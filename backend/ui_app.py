@@ -861,4 +861,5 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
     client.on_disconnect(lambda: setattr(refresh_timer, "active", False))
 
 
-ui.run(reload=True)
+if __name__ in {"__main__", "__mp_main__"}:
+    ui.run(reload=True)
