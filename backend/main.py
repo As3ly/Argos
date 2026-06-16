@@ -24,7 +24,8 @@ def main(prompt_client: str):
     initialize_database()
 
     # 1) Créer le job
-    search_id = create_job_for_prompt(source="francemarches", statut="en_cours")
+    selected_sites = ["boamp", "ted"]
+    search_id = create_job_for_prompt(source=",".join(selected_sites), statut="en_cours")
 
     # 2) Appel async N°1 : génération des mots-clés + meta_prompt
     kw = asyncio.run(generate_keywords(search_id=search_id, prompt_client=prompt_client))
@@ -107,6 +108,7 @@ def main(prompt_client: str):
             search_id=search_id,
             mots_recherche=mots_recherche,
             meta_prompt=meta_prompt,
+            selected_sites=selected_sites,
         )
     )
 

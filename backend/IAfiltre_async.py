@@ -12,6 +12,7 @@ from db.repository import DB_PATH, safe_insert, safe_delete_raw
 from jsonschema import validate as jsonschema_validate, ValidationError
 from openai import AsyncAzureOpenAI
 from dotenv import load_dotenv
+from proxy_config import get_azure_proxy
 
 # ========================================================================
 # PROXY + ENV
@@ -56,11 +57,7 @@ def _get_azure_config() -> tuple[str, str, str, str, str | None]:
             + ", ".join(missing_azure_env)
         )
 
-    use_proxy = os.getenv("AZURE_USE_PROXY", "true").strip().lower() in {"1", "true", "yes", "on"}
-    default_proxy = "http://163.116.128.80:8080"
-    proxy = os.getenv("AZURE_PROXY_URL") or (default_proxy if use_proxy else None)
-
-    return subscription_key, azure_endpoint, deployment, api_version, proxy
+    return subscription_key, azure_endpoint, deployment, api_version, get_azure_proxy()
 
 
 def get_async_client() -> AsyncAzureOpenAI:

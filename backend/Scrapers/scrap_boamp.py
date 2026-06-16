@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import date, timedelta
 from urllib.parse import quote
 from typing import Any
@@ -10,6 +9,7 @@ from typing import Any
 import requests
 
 from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
+from proxy_config import get_requests_proxies
 
 try:
     import truststore
@@ -51,16 +51,6 @@ BOAMP_SELECT_FIELDS = [
     "descripteur_libelle",
     "url_avis",
 ]
-
-
-HTTP_PROXY = "http://163.116.128.80:8080"
-HTTPS_PROXY = "http://163.116.128.80:8080"
-
-# Proxy entreprise BOAMP.
-BOAMP_PROXIES = {
-    "http": HTTP_PROXY,
-    "https": HTTPS_PROXY,
-}
 
 
 def _escape_odsql_string(value: str) -> str:
@@ -183,13 +173,13 @@ def scrape_boamp_into_raw(
     Scrape BOAMP API results into the raw search table.
 
     `sess` is kept for compatibility with the existing caller, but this scraper
-    uses its own requests.Session because it does not use the FranceMarchés session.
+    uses its own requests.Session because BOAMP is queried through its public API.
     """
     _ = sess
 
     local_sess = requests.Session()
 
-    active_proxies = {key: value for key, value in BOAMP_PROXIES.items() if value}
+    active_proxies = get_requests_proxies()
     if active_proxies:
         local_sess.proxies = active_proxies
 

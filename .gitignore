@@ -25,3 +25,11 @@ backend/html_scrap.db
 backend/*.sqlite3
 backend/*.db
 html_scrap.db
+debug_*.html
+
+# Build/package artifacts
+build/
+dist/
+
+# Browser test artifacts
+.playwright-mcp/

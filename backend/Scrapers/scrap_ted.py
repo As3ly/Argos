@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import date, timedelta
 from typing import Any
 from urllib.parse import quote
@@ -10,6 +9,7 @@ from urllib.parse import quote
 import requests
 
 from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
+from proxy_config import get_requests_proxies
 
 try:
     import truststore
@@ -44,15 +44,6 @@ TED_FIELDS = [
     "title-lot",
     "description-lot",
 ]
-
-
-HTTP_PROXY = "http://163.116.128.80:8080"
-HTTPS_PROXY = "http://163.116.128.80:8080"
-
-TED_PROXIES = {
-    "http": HTTP_PROXY,
-    "https": HTTPS_PROXY,
-}
 
 
 def _clean_scalar(value: Any) -> str:
@@ -224,7 +215,7 @@ def scrape_ted_into_raw(
 
     local_sess = requests.Session()
 
-    active_proxies = {key: value for key, value in TED_PROXIES.items() if value}
+    active_proxies = get_requests_proxies()
     if active_proxies:
         local_sess.proxies = active_proxies
 
@@ -320,7 +311,7 @@ if __name__ == "__main__":
         cpv_prefix=None,
     )
     with requests.Session() as debug_sess:
-        active_proxies = {key: value for key, value in TED_PROXIES.items() if value}
+        active_proxies = get_requests_proxies()
         if active_proxies:
             debug_sess.proxies = active_proxies
         notices = _fetch_notices(debug_sess, query=query, page=1, limit=10)

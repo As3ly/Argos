@@ -4,12 +4,13 @@ import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Sequence
 
 from .migrations import apply_migrations
 from .schema import create_base_schema
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BASE_DIR = PROJECT_ROOT / "backend"
 DB_PATH = Path(os.getenv("ARGOS_DB_PATH", str(PROJECT_ROOT / "html_scrap.db"))).resolve()
 
 
@@ -149,13 +150,20 @@ def initialize_database() -> None:
             "francemarches",
             label="France Marchés",
             base_url="https://www.francemarches.com/",
-            active=1,
+            active=0,
             conn=conn,
         )
         ensure_source(
             "boamp",
             label="BOAMP",
             base_url="https://www.boamp.fr/",
+            active=1,
+            conn=conn,
+        )
+        ensure_source(
+            "ted",
+            label="TED / JOUE",
+            base_url="https://ted.europa.eu/",
             active=1,
             conn=conn,
         )
@@ -230,7 +238,17 @@ def update_recherche_job(
         conn.execute(f"UPDATE recherches_jobs SET {', '.join(sets)} WHERE id = ?", values)
 
 
-def list_recherche_jobs(limit: int = 50, order_by: str = "date_lancement DESC") -> Iterable[Dict[str, Any]]:
+def count_recherche_jobs() -> int:
+    with closing(get_conn()) as conn:
+        row = conn.execute("SELECT COUNT(*) FROM recherches_jobs").fetchone()
+        return int(row[0])
+
+
+def list_recherche_jobs(
+    limit: int = 50,
+    order_by: str = "date_lancement DESC",
+    offset: int = 0,
+) -> Iterable[Dict[str, Any]]:
     safe_order_by = _sanitize_order_by(
         order_by,
         _RECHERCHE_JOB_ORDER_BY,
@@ -238,10 +256,23 @@ def list_recherche_jobs(limit: int = 50, order_by: str = "date_lancement DESC") 
     )
     with closing(get_conn()) as conn:
         rows = conn.execute(
-            f"SELECT * FROM recherches_jobs ORDER BY {safe_order_by} LIMIT ?", (limit,)
+            f"SELECT * FROM recherches_jobs ORDER BY {safe_order_by} LIMIT ? OFFSET ?",
+            (limit, offset),
         ).fetchall()
         for row in rows:
             yield dict(row)
+
+
+def delete_recherche_jobs(search_ids: Sequence[int]) -> int:
+    ids = sorted({int(search_id) for search_id in search_ids if int(search_id) > 0})
+    if not ids:
+        return 0
+
+    placeholders = ",".join("?" for _ in ids)
+    with closing(get_conn()) as conn, conn:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM recherches_jobs WHERE id IN ({placeholders})", ids)
+        return cur.rowcount
 
 
 # --- Fonctions historiques conservées telles quelles pour compatibilité ---

@@ -4,7 +4,7 @@ Argos est un outil de **veille d'appels d'offres** orienté technique.
 Il automatise 3 étapes :
 
 1. Générer des mots-clés pertinents à partir d'un besoin en langage naturel (Azure OpenAI).
-2. Scraper des appels d'offres (source actuelle : FranceMarchés).
+2. Scraper des appels d'offres via les API BOAMP et TED/JOUE.
 3. Trier / scorer les résultats avec l'IA et les afficher dans une interface NiceGUI.
 
 ---
@@ -13,7 +13,7 @@ Il automatise 3 étapes :
 
 - Génération de **mots-clés métier** et d'un **méta-prompt** de pertinence.
 - Génération automatique d'un **titre de recherche** (`titre_recherche`) stocké en base.
-- Scraping paginé + dédoublonnage des liens.
+- Scraping paginé BOAMP/TED + dédoublonnage des liens.
 - Stockage SQLite des jobs, raws, et appels d'offres enrichis.
 - UI NiceGUI pour lancer les recherches et consulter les résultats.
 
@@ -74,13 +74,15 @@ API_VERSION=2024-10-21
 # Proxy Azure (optionnels)
 # AZURE_USE_PROXY=true
 # AZURE_PROXY_URL=http://proxy:8080
+# Proxy scrapers BOAMP/TED (optionnels)
+# ARGOS_HTTP_PROXY=http://proxy:8080
+# ARGOS_HTTPS_PROXY=http://proxy:8080
 # Optionnel: surcharge DB
 # ARGOS_DB_PATH=/chemin/vers/html_scrap.db
-# Limite globale de requêtes scraper FranceMarchés (fallback: 110)
-# FRANCEMARCHE_MAX_RPM=110
 ```
 
-> Les paramètres proxy sont configurés en dur dans le code (HTTP/HTTPS).
+> Les scrapers et Azure utilisent `framatome.HTTP_PROXY/HTTPS_PROXY` si la lib interne est disponible.
+> Sinon ils utilisent `ARGOS_HTTP_PROXY` / `ARGOS_HTTPS_PROXY`, puis un proxy Fra par défaut.
 
 ---
 
@@ -110,10 +112,11 @@ Ce mode permet d'éditer manuellement les groupes de mots-clés avant le scrapin
 
 1. Saisir un prompt métier.
 2. Choisir la période de publication.
-3. Lancer la recherche.
-4. Ajuster les mots-clés proposés (ajout/suppression).
-5. Valider pour exécuter scraping + tri IA.
-6. Consulter les cartes résultat et le détail de chaque AO.
+3. Sélectionner les sources BOAMP et/ou TED.
+4. Lancer la recherche.
+5. Ajuster les mots-clés proposés (ajout/suppression).
+6. Valider pour exécuter scraping + tri IA.
+7. Consulter les cartes résultat et le détail de chaque AO.
 
 ---
 

@@ -23,10 +23,10 @@ from db.repository import initialize_database, create_recherche_job, update_rech
 
 
 try:
-    from Scrapers import run_all_scrapers, build_francemarche_session
+    from Scrapers import list_scraper_options, run_all_scrapers
 except Exception:  # pragma: no cover
     run_all_scrapers = None
-    build_francemarche_session = None
+    list_scraper_options = None
 
 
 MotsRecherche = List[List[str]]
@@ -68,6 +68,12 @@ def create_job_for_prompt(*, source: str, statut: str = "en_cours") -> int:
     )
 
 
+def get_available_scrapers() -> list[dict[str, str]]:
+    if list_scraper_options is None:
+        return []
+    return list_scraper_options()
+
+
 async def generate_keywords(*, search_id: int, prompt_client: str) -> KeywordsResult:
     """Appel LLM async: génère mots-clés + meta_prompt."""
     update_recherche_job(search_id, statut="generation_mots_cle")
@@ -99,14 +105,19 @@ async def run_full_pipeline(
     meta_prompt: str,
     date_pub_min: date | str | None = None,
     date_pub_max: date | str | None = None,
+    selected_sites: Sequence[str] | None = None,
 ) -> None:
     """Lance scraping + tri IA sans bloquer l'event loop."""
 
-    if run_all_scrapers is None or build_francemarche_session is None:
+    if run_all_scrapers is None:
         update_recherche_job(search_id, statut="erreur_scraper")
         raise RuntimeError(
             "Module 'Scrapers' introuvable. Vérifie que ton projet contient Scrapers.py / package Scrapers."
         )
+
+    if selected_sites is not None and not selected_sites:
+        update_recherche_job(search_id, statut="erreur_scraper")
+        raise ValueError("Aucune source sélectionnée pour le scraping.")
 
     # 1) persist requête + statut
     requete_str = mots_recherche_to_requete(mots_recherche)
@@ -115,15 +126,15 @@ async def run_full_pipeline(
     parsed_date_pub_min = _coerce_date(date_pub_min)
     parsed_date_pub_max = _coerce_date(date_pub_max)
 
-    # 2) scraping (bloquant) -> thread
-    sess = await asyncio.to_thread(build_francemarche_session)
+    # 2) scraping API (bloquant) -> thread
     await asyncio.to_thread(
         run_all_scrapers,
         search_id=search_id,
         mots_recherche=mots_recherche,
-        sess=sess,
+        sess=None,
         date_pub_min=parsed_date_pub_min,
         date_pub_max=parsed_date_pub_max,
+        selected_sites=selected_sites,
     )
 
     # 3) tri IA (async)
