@@ -24,3 +24,4 @@ ENV/
 backend/html_scrap.db
 backend/*.sqlite3
 backend/*.db
+html_scrap.db
