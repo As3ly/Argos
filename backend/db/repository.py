@@ -177,6 +177,7 @@ def init_db() -> None:
 def create_recherche_job(
     *,
     requete: str,
+    prompt_initial: Optional[str] = None,
     source: Optional[str] = None,
     titre: Optional[str] = None,
     params: Optional[str] = None,
@@ -191,10 +192,10 @@ def create_recherche_job(
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO recherches_jobs (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre, date_lancement)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO recherches_jobs (requete, prompt_initial, source, source_id, params, statut, nb_trouves, nb_insere, titre, date_lancement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
-            (requete, source, source_id, params, statut, nb_trouves, nb_insere, titre),
+            (requete, prompt_initial, source, source_id, params, statut, nb_trouves, nb_insere, titre),
         )
         return cur.lastrowid
 
@@ -207,6 +208,7 @@ def update_recherche_job(
     nb_insere: Optional[int] = None,
     titre: Optional[str] = None,
     requete: Optional[str] = None,
+    prompt_initial: Optional[str] = None,
     warnings_json: Optional[str] = None,
 ) -> None:
     sets = []
@@ -223,6 +225,9 @@ def update_recherche_job(
     if requete is not None:
         sets.append("requete = ?")
         values.append(requete)
+    if prompt_initial is not None:
+        sets.append("prompt_initial = ?")
+        values.append(prompt_initial)
     if titre is not None:
         sets.append("titre = ?")
         values.append(titre)

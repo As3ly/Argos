@@ -70,7 +70,16 @@ ui.add_head_html(
     <style>
       body.body--light {{ background: #F6F7FB; color: {PALETTE["ink"]}; }}
       .argos-page {{ min-height: 100vh; background: #F6F7FB; }}
-      .argos-shell {{ width: min(1120px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }}
+      .argos-shell {{ width: min(1680px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }}
+      .argos-detail-shell {{ width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 48px; }}
+      .argos-workspace {{ display: grid; grid-template-columns: minmax(420px, 520px) minmax(0, 1fr); gap: 20px; align-items: start; }}
+      .argos-left-pane, .argos-right-pane {{ min-width: 0; }}
+      .argos-right-pane {{ position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow: auto; padding-right: 2px; }}
+      .argos-empty-detail {{ min-height: 420px; display: flex; align-items: center; justify-content: center; text-align: center; }}
+      .home-split {{ display: grid; grid-template-columns: minmax(420px, 520px) minmax(0, 1fr); gap: 20px; align-items: start; }}
+      .home-split .argos-topbar {{ grid-column: 1 / -1; }}
+      .home-split .argos-left-gap {{ display: none; }}
+      .argos-detail-home {{ grid-column: 2; grid-row: 2 / span 4; }}
       .argos-topbar {{ background: #FFFFFF; border: 1px solid {PALETTE["line"]}; border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }}
       .argos-title {{ color: {PALETTE["ink"]}; font-size: 1.45rem; font-weight: 700; letter-spacing: 0; line-height: 1.2; }}
       .argos-subtitle {{ color: {PALETTE["muted"]}; font-size: .92rem; line-height: 1.45; }}
@@ -102,6 +111,11 @@ ui.add_head_html(
       .q-field--outlined .q-field__control {{ border-radius: 8px; }}
       .q-btn {{ border-radius: 8px; text-transform: none; font-weight: 600; }}
       .q-chip {{ border-radius: 999px; }}
+      @media (max-width: 1100px) {{
+        .argos-workspace, .home-split {{ grid-template-columns: 1fr; }}
+        .argos-right-pane {{ position: static; max-height: none; overflow: visible; }}
+        .argos-detail-home {{ grid-column: auto; grid-row: auto; }}
+      }}
     </style>
     """,
     shared=True,
@@ -140,7 +154,7 @@ def get_job(search_id: int) -> Optional[Dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, titre, requete, source, params, warnings_json, date_lancement, statut, nb_trouves, nb_insere
+            SELECT id, titre, requete, prompt_initial, source, params, warnings_json, date_lancement, statut, nb_trouves, nb_insere
             FROM recherches_jobs
             WHERE id = ?
             LIMIT 1
@@ -216,10 +230,38 @@ def _job_is_active(job: Dict[str, Any]) -> bool:
     return _status_key(job.get("statut")) in ACTIVE_JOB_STATUSES
 
 
-def _render_status_badges(statut: Any) -> None:
+def _job_has_warning(job: Dict[str, Any] | None) -> bool:
+    if not job:
+        return False
+    warning_blob = (job.get("warnings_json") or "").strip()
+    if not warning_blob:
+        return False
+    try:
+        parsed = json.loads(warning_blob)
+    except Exception:
+        return True
+    if isinstance(parsed, dict):
+        limited = parsed.get("limited_searches")
+        if isinstance(limited, list) and limited:
+            return True
+        if parsed.get("severity") in {"warning", "error"}:
+            return True
+        return bool(parsed.get("error"))
+    if isinstance(parsed, list):
+        return any(bool(item) for item in parsed)
+    return bool(parsed)
+
+
+def _render_status_badges(job_or_status: Any) -> None:
+    if isinstance(job_or_status, dict):
+        statut = job_or_status.get("statut")
+        has_warning = _job_has_warning(job_or_status)
+    else:
+        statut = job_or_status
+        has_warning = False
     label, cls = _status_badge(statut)
     ui.chip(label).classes(f"text-sm {cls}").props("outline")
-    if _status_key(statut) == "termine":
+    if _status_key(statut) == "termine" and has_warning:
         ui.chip("à vérifier", icon="warning").classes("text-xs bg-amber-50 text-amber-700").props("outline dense")
 
 
@@ -245,6 +287,8 @@ def build_job_card(
     job: Dict[str, Any],
     *,
     selected: bool = False,
+    active: bool = False,
+    on_open=None,
     on_selection_change=None,
     on_delete=None,
 ) -> None:
@@ -256,7 +300,7 @@ def build_job_card(
 
     card = (
         ui.card()
-        .classes("w-full job-card")
+        .classes("w-full job-card" + (" border-blue-300 bg-blue-50" if active else ""))
         .props("flat bordered")
     )
     with card:
@@ -271,7 +315,7 @@ def build_job_card(
                 with ui.row().classes("w-full items-start justify-between gap-3"):
                     ui.label(titre_card or f"Recherche #{rid}").classes("job-title flex-1 min-w-0")
                     with ui.row().classes("items-center gap-1 shrink-0"):
-                        _render_status_badges(job.get("statut"))
+                        _render_status_badges(job)
 
                 with ui.row().classes("w-full items-center justify-between gap-3"):
                     ui.label(f"#{rid} · {_source_label(source)} · {_fmt_dt(dt)}").classes("job-meta")
@@ -280,7 +324,13 @@ def build_job_card(
                     ).classes("job-meta")
 
             with ui.row().classes("items-center gap-1 shrink-0"):
-                open_btn = ui.button(icon="open_in_new", on_click=lambda _e=None, _rid=rid: ui.navigate.to(f"/recherche/{_rid}")).props("flat round dense")
+                def open_job(_e=None, _rid=rid):
+                    if on_open:
+                        on_open(_rid)
+                    else:
+                        ui.navigate.to(f"/recherche/{_rid}")
+
+                open_btn = ui.button(icon="open_in_new", on_click=open_job).props("flat round dense")
                 with open_btn:
                     ui.tooltip("Ouvrir")
 
@@ -381,6 +431,150 @@ def build_ao_card(ao: Dict[str, Any], on_details_open=None, on_details_close=Non
                 d.open()
 
             ui.button("Détails", on_click=open_details).props("flat").classes("ao-details-btn")
+
+
+def render_empty_detail_panel() -> None:
+    with ui.element("div").classes("argos-panel argos-empty-detail"):
+        with ui.column().classes("items-center gap-2 p-6"):
+            ui.icon("article").classes("text-gray-400 text-4xl")
+            ui.label("Sélectionne une recherche").classes("argos-section-title")
+            ui.label("Les détails et les appels d'offres s'afficheront ici.").classes("argos-muted text-sm")
+
+
+def render_recherche_detail_panel(
+    recherche_id: int,
+    *,
+    show_non_pertinent: bool = False,
+    embedded: bool = False,
+    on_close=None,
+    on_toggle_non_pertinent=None,
+) -> None:
+    job = get_job(recherche_id)
+    if not job:
+        with ui.element("div").classes("argos-panel"):
+            with ui.column().classes("w-full argos-panel-body gap-2"):
+                ui.label("Recherche introuvable.").classes("text-red-600")
+        return
+
+    rid = int(job["id"])
+    prompt_initial = _chip(job.get("prompt_initial"), "Prompt initial non stocké pour cet historique.")
+    requete = _chip(job.get("requete"), "")
+    params = _chip(job.get("params"), "")
+    keywords_and_params = "\n\n".join(part for part in [f"Mots-clés\n{requete}" if requete else "", f"Paramètres\n{params}" if params else ""] if part)
+    details_open = False
+    score_desc = True
+
+    with ui.element("div").classes("argos-panel"):
+        with ui.row().classes("w-full argos-panel-header items-start justify-between gap-3"):
+            with ui.column().classes("gap-1 min-w-0"):
+                title = f"Recherche #{rid}"
+                if show_non_pertinent:
+                    title += " · non pertinents"
+                ui.label(title).classes("argos-section-title")
+                ui.label(f"{_source_label(job.get('source'))} · {_chip(job.get('date_lancement'))}").classes("argos-muted text-sm")
+            with ui.row().classes("items-center gap-1 shrink-0"):
+                _render_status_badges(job)
+                if on_close:
+                    ui.button(icon="close", on_click=lambda _e=None: on_close()).props("flat round dense")
+
+        with ui.column().classes("w-full argos-panel-body gap-3"):
+            with ui.element("div").classes("ao-soft-section"):
+                ui.label("Prompt initial").classes("text-sm font-semibold")
+                ui.label(prompt_initial).classes("text-sm whitespace-pre-line")
+
+            with ui.element("div").classes("ao-soft-section"):
+                ui.label("Mots-clés et paramètres").classes("text-sm font-semibold")
+                ui.label(keywords_and_params or "Aucun mot-clé ou paramètre stocké.").classes("text-sm whitespace-pre-line")
+
+            ui.label(
+                f"{_chip(job.get('nb_trouves'), '0')} trouvés · {_chip(job.get('nb_insere'), '0')} insérés"
+            ).classes("argos-muted text-sm")
+
+    if not show_non_pertinent and _job_has_warning(job):
+        warning_blob = (job.get("warnings_json") or "").strip()
+        limited_searches: List[Dict[str, Any]] = []
+        warning_message = (
+            "Certaines recherches sont trop larges. Tous les avis disponibles ne sont peut-être pas affichés."
+        )
+        if warning_blob:
+            try:
+                parsed_warning = json.loads(warning_blob)
+                if isinstance(parsed_warning, dict):
+                    warning_message = (parsed_warning.get("message") or warning_message).strip()
+                    if isinstance(parsed_warning.get("limited_searches"), list):
+                        limited_searches = [
+                            item for item in parsed_warning["limited_searches"] if isinstance(item, dict)
+                        ]
+            except Exception:
+                limited_searches = []
+
+        with ui.element("div").classes("argos-panel bg-yellow-50 border border-yellow-200"):
+            with ui.column().classes("w-full argos-panel-body gap-2"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("warning").classes("text-yellow-700")
+                    ui.label("Vérification recommandée").classes("text-yellow-900 font-semibold")
+                ui.label(warning_message).classes("text-yellow-900 text-sm")
+                if limited_searches:
+                    with ui.column().classes("gap-1 mt-1"):
+                        for info in limited_searches:
+                            recherche = (info.get("recherche") or "").strip() or ", ".join(info.get("mots", []))
+                            nb_listees = info.get("nb_offres_listees") or info.get("nb_offres_lues") or info.get("nb_inserts") or "?"
+                            ui.label(f"{recherche} · {nb_listees} avis lus").classes("text-yellow-900 text-sm")
+
+    with ui.element("div").classes("argos-panel"):
+        with ui.row().classes("w-full argos-panel-header items-center justify-between"):
+            titre_aos = "AOs non pertinents" if show_non_pertinent else "Appels d'offres"
+            ui.label(titre_aos).classes("argos-section-title")
+            with ui.row().classes("items-center gap-1"):
+                sort_btn = None
+                if not show_non_pertinent:
+                    sort_btn = ui.button(icon="keyboard_arrow_down").props("flat round dense")
+
+                toggle_label = "AOs pertinents" if show_non_pertinent else "AOs non pertinents"
+                if embedded and on_toggle_non_pertinent:
+                    ui.button(toggle_label, on_click=lambda _e=None: on_toggle_non_pertinent(not show_non_pertinent)).props("flat dense")
+                else:
+                    target = f"/recherche/{rid}" if show_non_pertinent else f"/recherche/{rid}/non-pertinent"
+                    ui.button(toggle_label, on_click=lambda _e=None, _target=target: ui.navigate.to(_target)).props("flat dense")
+
+                refresh_btn = ui.button(icon="refresh").props("flat round dense")
+
+        with ui.column().classes("w-full argos-panel-body gap-2"):
+            aos_container = ui.column().classes("w-full gap-2")
+
+    def on_details_open():
+        nonlocal details_open
+        details_open = True
+
+    def on_details_close():
+        nonlocal details_open
+        details_open = False
+        refresh_aos()
+
+    def refresh_aos() -> None:
+        if details_open:
+            return
+        aos = list_aos_np(rid) if show_non_pertinent else list_aos_p(rid, score_desc=score_desc)
+        aos_container.clear()
+        with aos_container:
+            if not aos:
+                ui.label("Aucun AO pour cette recherche.").classes("text-gray-500")
+                return
+            for ao in aos:
+                build_ao_card(ao, on_details_open=on_details_open, on_details_close=on_details_close)
+
+    def toggle_sort() -> None:
+        nonlocal score_desc
+        score_desc = not score_desc
+        if sort_btn is not None:
+            sort_btn.props(add=f"icon={'keyboard_arrow_down' if score_desc else 'keyboard_arrow_up'}")
+            sort_btn.update()
+        refresh_aos()
+
+    refresh_btn.on("click", lambda _e=None: refresh_aos())
+    if not show_non_pertinent and sort_btn is not None:
+        sort_btn.on("click", lambda _e=None: toggle_sort())
+    refresh_aos()
 
 
 ###############################################################################
@@ -675,16 +869,18 @@ def page_home() -> None:
     source_options = get_available_scrapers()
     history_page = 1
     selected_job_ids: set[int] = set()
+    selected_detail_id: Optional[int] = None
+    detail_show_non_pertinent = False
 
     with ui.element("div").classes("argos-page"):
-        with ui.element("div").classes("argos-shell"):
+        with ui.element("div").classes("argos-shell home-split"):
             with ui.row().classes("w-full argos-topbar items-center justify-between gap-4"):
                 with ui.column().classes("gap-1"):
                     ui.label("Console Appels d'Offres").classes("argos-title")
                     ui.label(f"Recherche multi-sources via {_source_summary(source_options)}").classes("argos-subtitle")
                 ui.chip(_source_summary(source_options)).props("outline").classes("bg-blue-50 text-blue-700")
 
-            ui.space().classes("h-5")
+            ui.space().classes("argos-left-gap")
 
             with ui.element("div").classes("argos-panel"):
                 with ui.column().classes("w-full gap-0"):
@@ -757,7 +953,7 @@ def page_home() -> None:
                                 else:
                                     ui.label("Aucune source active dans le registre des scrapers.").classes("text-red-600 text-sm")
 
-            ui.space().classes("h-5")
+            ui.space().classes("argos-left-gap")
 
             with ui.element("div").classes("argos-panel"):
                 with ui.row().classes("w-full argos-panel-header items-center justify-between gap-3"):
@@ -772,7 +968,43 @@ def page_home() -> None:
                     list_container = ui.column().classes("w-full gap-2")
                     pager_container = ui.row().classes("w-full items-center justify-between")
 
+            with ui.element("div").classes("argos-right-pane argos-detail-home"):
+                detail_container = ui.column().classes("w-full gap-4")
+
     bulk_delete_btn.disable()
+
+    def _render_selected_detail() -> None:
+        detail_container.clear()
+        with detail_container:
+            if selected_detail_id is None:
+                render_empty_detail_panel()
+            else:
+                render_recherche_detail_panel(
+                    selected_detail_id,
+                    show_non_pertinent=detail_show_non_pertinent,
+                    embedded=True,
+                    on_close=_close_detail,
+                    on_toggle_non_pertinent=_toggle_detail_mode,
+                )
+
+    def _open_job_detail(job_id: int) -> None:
+        nonlocal selected_detail_id, detail_show_non_pertinent
+        selected_detail_id = int(job_id)
+        detail_show_non_pertinent = False
+        refresh()
+        _render_selected_detail()
+
+    def _close_detail() -> None:
+        nonlocal selected_detail_id, detail_show_non_pertinent
+        selected_detail_id = None
+        detail_show_non_pertinent = False
+        refresh()
+        _render_selected_detail()
+
+    def _toggle_detail_mode(show_non_pertinent: bool) -> None:
+        nonlocal detail_show_non_pertinent
+        detail_show_non_pertinent = bool(show_non_pertinent)
+        _render_selected_detail()
 
     def _update_selection_controls() -> None:
         count = len(selected_job_ids)
@@ -826,11 +1058,16 @@ def page_home() -> None:
                 ui.button("Annuler", on_click=dlg.close).props("flat")
 
                 def delete_confirmed() -> None:
+                    nonlocal selected_detail_id, detail_show_non_pertinent
                     deleted = db_repository.delete_recherche_jobs(ids)
                     selected_job_ids.difference_update(ids)
+                    if selected_detail_id in ids:
+                        selected_detail_id = None
+                        detail_show_non_pertinent = False
                     dlg.close()
                     ui.notify(f"{deleted} recherche" + ("s" if deleted > 1 else "") + " supprimée" + ("s" if deleted > 1 else "") + ".")
                     refresh()
+                    _render_selected_detail()
 
                 ui.button("Supprimer", icon="delete", on_click=delete_confirmed).props("unelevated").classes("bg-red-600 text-white")
 
@@ -858,6 +1095,8 @@ def page_home() -> None:
                     build_job_card(
                         j,
                         selected=int(j["id"]) in selected_job_ids,
+                        active=selected_detail_id == int(j["id"]),
+                        on_open=_open_job_detail,
                         on_selection_change=_on_select_job,
                         on_delete=_confirm_delete_jobs,
                     )
@@ -898,7 +1137,7 @@ def page_home() -> None:
         # Créer job
         source = ",".join(selected_sites)
         try:
-            search_id = create_job_for_prompt(source=source, statut="en_cours")
+            search_id = create_job_for_prompt(source=source, statut="en_cours", prompt_initial=prompt)
         except Exception as e:
             ui.notify(f"Erreur création job: {e}", type="negative")
             return
@@ -923,6 +1162,7 @@ def page_home() -> None:
     prompt_input.on("keydown.enter", on_launch)
 
     refresh()
+    _render_selected_detail()
     # auto refresh léger (statuts)
     t = ui.timer(3.0, refresh)
     client = ui.context.client
@@ -957,7 +1197,7 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
     ui.page_title(f"AO · recherche {rid}{suffix}")
 
     with ui.element("div").classes("argos-page"):
-      with ui.element("div").classes("argos-shell"):
+      with ui.element("div").classes("argos-detail-shell"):
         with ui.row().classes("w-full argos-topbar items-center justify-between gap-4"):
             back_target = f"/recherche/{rid}" if show_non_pertinent else "/"
             with ui.row().classes("items-center gap-3"):
@@ -967,33 +1207,36 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
                     ui.label(page_title).classes("argos-title")
                     ui.label(f"{_source_label(job.get('source'))} · {_chip(job.get('date_lancement'))}").classes("argos-subtitle")
             with ui.row().classes("items-center gap-1"):
-                _render_status_badges(job.get("statut"))
-            
-        show_params = False
+                _render_status_badges(job)
+
         ui.space().classes("h-5")
 
         with ui.element("div").classes("argos-panel"):
             with ui.row().classes("w-full argos-panel-header items-center justify-between"):
                 ui.label("Détails").classes("argos-section-title")
-                details_switch_btn = ui.button("Afficher params").props("flat dense")
 
-            with ui.column().classes("w-full argos-panel-body gap-2"):
-                details_value_label = ui.label(_chip(job.get("requete"), "")).classes("text-sm")
+            with ui.column().classes("w-full argos-panel-body gap-3"):
+                with ui.element("div").classes("ao-soft-section"):
+                    ui.label("Prompt initial").classes("text-sm font-semibold")
+                    ui.label(_chip(job.get("prompt_initial"), "Prompt initial non stocké pour cet historique.")).classes("text-sm whitespace-pre-line")
+
+                requete = _chip(job.get("requete"), "")
+                params = _chip(job.get("params"), "")
+                keywords_and_params = "\n\n".join(
+                    part
+                    for part in [
+                        f"Mots-clés\n{requete}" if requete else "",
+                        f"Paramètres\n{params}" if params else "",
+                    ]
+                    if part
+                )
+                with ui.element("div").classes("ao-soft-section"):
+                    ui.label("Mots-clés et paramètres").classes("text-sm font-semibold")
+                    ui.label(keywords_and_params or "Aucun mot-clé ou paramètre stocké.").classes("text-sm whitespace-pre-line")
+
                 ui.label(
                     f"{_chip(job.get('nb_trouves'), '0')} trouvés · {_chip(job.get('nb_insere'), '0')} insérés"
                 ).classes("argos-muted text-sm")
-            
-            def toggle_details_value() -> None:
-                nonlocal show_params
-                show_params = not show_params
-                if show_params:
-                    details_value_label.set_text(_chip(job.get("params"), ""))
-                    details_switch_btn.set_text("Afficher requête")
-                else:
-                    details_value_label.set_text(_chip(job.get("requete"), ""))
-                    details_switch_btn.set_text("Afficher params")
-
-            details_switch_btn.on("click", lambda _e=None: toggle_details_value())
 
 
         ui.space().classes("h-4")

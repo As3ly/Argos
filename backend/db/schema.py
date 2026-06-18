@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS recherches_jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titre TEXT,
     requete TEXT NOT NULL,
+    prompt_initial TEXT,
     source TEXT,
     source_id INTEGER,
     params TEXT,

@@ -132,6 +132,12 @@ def _migration_2026_04_13_recherches_jobs_warnings_json(conn: sqlite3.Connection
         conn.execute("ALTER TABLE recherches_jobs ADD COLUMN warnings_json TEXT")
 
 
+def _migration_2026_06_18_recherches_jobs_prompt_initial(conn: sqlite3.Connection) -> None:
+    """Ajoute le prompt utilisateur initial sans écraser les historiques existants."""
+    if not _has_column(conn, "recherches_jobs", "prompt_initial"):
+        conn.execute("ALTER TABLE recherches_jobs ADD COLUMN prompt_initial TEXT")
+
+
 def _migration_2026_04_14_appels_offres_pertinent(conn: sqlite3.Connection) -> None:
     """Ajoute appels_offres.pertinent et backfill depuis le score historique."""
     if not _has_column(conn, "appels_offres", "pertinent"):
@@ -168,6 +174,10 @@ MIGRATIONS: list[tuple[str, MigrationFn]] = [
     (
         "2026_04_14_appels_offres_pertinent",
         _migration_2026_04_14_appels_offres_pertinent,
+    ),
+    (
+        "2026_06_18_recherches_jobs_prompt_initial",
+        _migration_2026_06_18_recherches_jobs_prompt_initial,
     ),
 ]
 

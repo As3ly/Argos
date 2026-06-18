@@ -288,16 +288,17 @@ def scrape_ted_into_raw(
 
             page += 1
 
-    warning_payload = {
-        "type": "pagination_limit",
-        "message": "Limite TED atteinte pour certaines recherches trop larges.",
-        "limited_searches": recherches_limitees,
-    }
-
-    update_recherche_job(
-        search_id,
-        warnings_json=json.dumps(warning_payload, ensure_ascii=False),
-    )
+    if recherches_limitees:
+        warning_payload = {
+            "type": "pagination_limit",
+            "severity": "warning",
+            "message": "Limite TED atteinte pour certaines recherches trop larges.",
+            "limited_searches": recherches_limitees,
+        }
+        update_recherche_job(
+            search_id,
+            warnings_json=json.dumps(warning_payload, ensure_ascii=False),
+        )
     increment_recherche_job_counts(search_id, nb_trouves_delta=nb_inserts)
 
 

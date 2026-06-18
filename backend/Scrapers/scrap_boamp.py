@@ -254,14 +254,15 @@ def scrape_boamp_into_raw(
 
             offset += len(rows)
 
-    warning_payload = {
-        "type": "pagination_limit",
-        "message": "Limite BOAMP atteinte pour certaines recherches trop larges.",
-        "limited_searches": recherches_limitees,
-    }
-
-    update_recherche_job(
-        search_id,
-        warnings_json=json.dumps(warning_payload, ensure_ascii=False),
-    )
+    if recherches_limitees:
+        warning_payload = {
+            "type": "pagination_limit",
+            "severity": "warning",
+            "message": "Limite BOAMP atteinte pour certaines recherches trop larges.",
+            "limited_searches": recherches_limitees,
+        }
+        update_recherche_job(
+            search_id,
+            warnings_json=json.dumps(warning_payload, ensure_ascii=False),
+        )
     increment_recherche_job_counts(search_id, nb_trouves_delta=nb_inserts)

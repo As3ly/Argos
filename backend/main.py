@@ -25,7 +25,11 @@ def main(prompt_client: str):
 
     # 1) Créer le job
     selected_sites = ["boamp", "ted"]
-    search_id = create_job_for_prompt(source=",".join(selected_sites), statut="en_cours")
+    search_id = create_job_for_prompt(
+        source=",".join(selected_sites),
+        statut="en_cours",
+        prompt_initial=prompt_client,
+    )
 
     # 2) Appel async N°1 : génération des mots-clés + meta_prompt
     kw = asyncio.run(generate_keywords(search_id=search_id, prompt_client=prompt_client))
