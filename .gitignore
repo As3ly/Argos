@@ -30,6 +30,7 @@ debug_*.html
 # Build/package artifacts
 build/
 dist/
+release/
 
 # Browser test artifacts
 .playwright-mcp/

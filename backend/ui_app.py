@@ -31,6 +31,7 @@ from pipeline import (
     mots_recherche_to_requete,
     run_full_pipeline,
 )
+from version import APP_DISPLAY_NAME, APP_VERSION
 
 HISTORY_PAGE_SIZE = 20
 ACTIVE_JOB_STATUSES = {"en_cours", "generation_mots_cle", "scraping", "tri_ia"}
@@ -873,7 +874,7 @@ class KeywordsWizard:
 @ui.page("/")
 def page_home() -> None:
     db_repository.initialize_database()
-    ui.page_title("Recherches")
+    ui.page_title(f"{APP_DISPLAY_NAME} · Recherches")
 
     source_options = get_available_scrapers()
     history_page = 1
@@ -887,7 +888,9 @@ def page_home() -> None:
                 with ui.column().classes("gap-1"):
                     ui.label("Console Appels d'Offres").classes("argos-title")
                     ui.label(f"Recherche multi-sources via {_source_summary(source_options)}").classes("argos-subtitle")
-                ui.chip(_source_summary(source_options)).props("outline").classes("bg-blue-50 text-blue-700")
+                with ui.row().classes("items-center gap-2"):
+                    ui.chip(f"v{APP_VERSION}").props("outline").classes("bg-gray-50 text-gray-700")
+                    ui.chip(_source_summary(source_options)).props("outline").classes("bg-blue-50 text-blue-700")
 
             ui.space().classes("argos-left-gap")
 

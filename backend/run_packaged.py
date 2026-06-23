@@ -8,9 +8,11 @@ from pathlib import Path
 from threading import Timer
 from multiprocessing import freeze_support
 
+from version import APP_DISPLAY_NAME, APP_NAME, APP_VERSION
+
 
 def _runtime_dir() -> Path:
-    base_dir = Path(os.getenv("LOCALAPPDATA", Path.home())) / "Argos"
+    base_dir = Path(os.getenv("LOCALAPPDATA", Path.home())) / APP_NAME
     base_dir.mkdir(parents=True, exist_ok=True)
     return base_dir
 
@@ -33,7 +35,7 @@ if __name__ in {"__main__", "__mp_main__"}:
     freeze_support()
 
     try:
-        _log("=== START ARGOS ===")
+        _log(f"=== START {APP_DISPLAY_NAME} ===")
 
         db_path = _ensure_clean_runtime_db()
         _log(f"DB PATH = {db_path}")
@@ -49,12 +51,12 @@ if __name__ in {"__main__", "__mp_main__"}:
         _log("DATABASE OK")
 
         url = "http://127.0.0.1:8080"
-        _log(f"STARTING NICEGUI ON {url}")
+        _log(f"STARTING NICEGUI {APP_VERSION} ON {url}")
 
         Timer(2.0, lambda: webbrowser.open(url)).start()
 
         ui.run(
-            title="Argos",
+            title=APP_DISPLAY_NAME,
             reload=False,
             native=False,
             host="127.0.0.1",
