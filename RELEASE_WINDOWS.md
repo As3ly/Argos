@@ -16,8 +16,16 @@ git pull origin codex/test-main-clean-ted-boamp-ui
 Depuis la racine du repo :
 
 ```powershell
-uv sync --group dev
+uv --config-file uv-corporate.toml sync --group dev --locked
 ```
+
+La configuration `uv-corporate.toml` force :
+
+- le Nexus corporate `https://nexus.framatome.corp/repository/py-pypi/simple`
+- le proxy Fra `http://163.116.128.80:8080`
+- `native-tls = true` pour utiliser le magasin de certificats Windows avec l'inspection SSL corporate
+
+Ne pas relancer `uv lock` sans cette configuration, sinon `uv.lock` peut repasser sur PyPI.
 
 ## 3. Verifier la version
 
@@ -94,6 +102,7 @@ Important : demander aux collegues de fermer l'ancienne version avant de lancer 
 
 - Changer `APP_VERSION` dans `backend/version.py`
 - Changer `version` dans `pyproject.toml`
+- Regenerer le lock uniquement avec `uv --config-file uv-corporate.toml lock`
 - Ajouter une entree dans `CHANGELOG.md`
 - Creer un commit `Release X.Y.Z`
 - Creer un tag Git `vX.Y.Z`

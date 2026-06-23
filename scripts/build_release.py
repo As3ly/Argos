@@ -13,10 +13,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / "backend" / "version.py"
 PYPROJECT_FILE = ROOT / "pyproject.toml"
+LOCK_FILE = ROOT / "uv.lock"
+CORPORATE_UV_CONFIG_FILE = ROOT / "uv-corporate.toml"
+PROXY_CONFIG_FILE = ROOT / "backend" / "proxy_config.py"
 SPEC_FILE = ROOT / "Argos.spec"
 DIST_DIR = ROOT / "dist"
 BUILD_DIR = ROOT / "build"
 RELEASE_DIR = ROOT / "release"
+NEXUS_HOST = "nexus.framatome.corp"
+NEXUS_INDEX_URL = "https://nexus.framatome.corp/repository/py-pypi/simple"
+FRA_PROXY_URL = "http://163.116.128.80:8080"
 
 
 def read_app_version() -> str:
@@ -55,6 +61,38 @@ def assert_versions_match() -> str:
     return version
 
 
+def assert_corporate_constraints() -> None:
+    lock_text = LOCK_FILE.read_text(encoding="utf-8")
+    if NEXUS_HOST not in lock_text:
+        raise RuntimeError("uv.lock ne pointe pas vers le Nexus corporate.")
+    forbidden_public_indexes = ("https://pypi.org/simple", "https://files.pythonhosted.org/")
+    forbidden_found = [value for value in forbidden_public_indexes if value in lock_text]
+    if forbidden_found:
+        raise RuntimeError(
+            "uv.lock contient encore des URLs PyPI publiques: " + ", ".join(forbidden_found)
+        )
+
+    corporate_uv_config = CORPORATE_UV_CONFIG_FILE.read_text(encoding="utf-8")
+    for expected in (NEXUS_INDEX_URL, "native-tls = true", FRA_PROXY_URL):
+        if expected not in corporate_uv_config:
+            raise RuntimeError(f"Contrainte corporate manquante dans uv-corporate.toml: {expected}")
+
+    proxy_config = PROXY_CONFIG_FILE.read_text(encoding="utf-8")
+    for expected in ("DEFAULT_HTTP_PROXY", "DEFAULT_HTTPS_PROXY", FRA_PROXY_URL):
+        if expected not in proxy_config:
+            raise RuntimeError(f"Proxy Fra manquant dans backend/proxy_config.py: {expected}")
+
+    ssl_files = [
+        ROOT / "backend" / "IAfiltre_async.py",
+        ROOT / "backend" / "Scrapers" / "scrap_boamp.py",
+        ROOT / "backend" / "Scrapers" / "scrap_ted.py",
+    ]
+    for path in ssl_files:
+        text = path.read_text(encoding="utf-8")
+        if "truststore.inject_into_ssl()" not in text:
+            raise RuntimeError(f"Injection SSL truststore absente: {path.relative_to(ROOT)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build a Windows release artifact for Argos.")
     parser.add_argument(
@@ -65,8 +103,10 @@ def main() -> int:
     args = parser.parse_args()
 
     version = assert_versions_match()
+    assert_corporate_constraints()
     if args.check:
         print(f"Version OK: Argos {version}")
+        print("Contraintes corporate OK: Nexus, proxy Fra, TLS natif uv, truststore runtime")
         return 0
 
     print(f"Building Argos {version}")

@@ -101,6 +101,7 @@ Ensuite ouvrir l'URL affichée par NiceGUI (souvent `http://127.0.0.1:8080`).
 ## Versioning et release Windows
 
 La version applicative est definie dans `backend/version.py` et doit rester synchronisee avec `pyproject.toml`.
+Le lock de dependances est volontairement fige sur le Nexus corporate Framatome.
 
 Pour preparer une distribution Windows, suivre le guide :
 
@@ -111,6 +112,7 @@ RELEASE_WINDOWS.md
 Le script de release genere un executable versionne dans `release/` :
 
 ```powershell
+uv --config-file uv-corporate.toml sync --group dev --locked
 uv run --group dev python scripts/build_release.py
 ```
 
