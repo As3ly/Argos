@@ -17,9 +17,11 @@ from db.repository import (  # noqa: F401
     list_appels_offres_non_pert,
     list_appels_offres_pert,
     list_recherche_jobs,
+    list_saved_prompts,
     raw_lien_existe,
     safe_delete_raw,
     safe_insert,
+    save_prompt,
     update_recherche_job,
 )
 from db.schema import (  # noqa: F401
@@ -27,6 +29,7 @@ from db.schema import (  # noqa: F401
     DDL_INDEXES,
     DDL_RAW_RECHERCHES,
     DDL_RECHERCHES_JOBS,
+    DDL_SAVED_PROMPTS,
     DDL_SOURCES,
 )
 
@@ -37,6 +40,7 @@ __all__ = [
     "DDL_INDEXES",
     "DDL_RAW_RECHERCHES",
     "DDL_RECHERCHES_JOBS",
+    "DDL_SAVED_PROMPTS",
     "DDL_SOURCES",
     "add_appel_offre",
     "count_recherche_jobs",
@@ -52,9 +56,11 @@ __all__ = [
     "list_appels_offres_non_pert",
     "list_appels_offres_pert",
     "list_recherche_jobs",
+    "list_saved_prompts",
     "raw_lien_existe",
     "safe_delete_raw",
     "safe_insert",
+    "save_prompt",
     "update_recherche_job",
 ]
 

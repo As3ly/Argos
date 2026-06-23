@@ -138,6 +138,24 @@ def _migration_2026_06_18_recherches_jobs_prompt_initial(conn: sqlite3.Connectio
         conn.execute("ALTER TABLE recherches_jobs ADD COLUMN prompt_initial TEXT")
 
 
+def _migration_2026_06_23_saved_prompts(conn: sqlite3.Connection) -> None:
+    """Ajoute une bibliothèque locale de prompts réutilisables."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS saved_prompts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prompt TEXT NOT NULL UNIQUE,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_saved_prompts_updated_at "
+        "ON saved_prompts(updated_at DESC, id DESC)"
+    )
+
+
 def _migration_2026_04_14_appels_offres_pertinent(conn: sqlite3.Connection) -> None:
     """Ajoute appels_offres.pertinent et backfill depuis le score historique."""
     if not _has_column(conn, "appels_offres", "pertinent"):
@@ -178,6 +196,10 @@ MIGRATIONS: list[tuple[str, MigrationFn]] = [
     (
         "2026_06_18_recherches_jobs_prompt_initial",
         _migration_2026_06_18_recherches_jobs_prompt_initial,
+    ),
+    (
+        "2026_06_23_saved_prompts",
+        _migration_2026_06_23_saved_prompts,
     ),
 ]
 

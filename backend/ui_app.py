@@ -103,6 +103,13 @@ ui.add_head_html(
       .ao-link:hover {{ color: {PALETTE["blue_dark"]}; }}
       .ao-details-btn {{ color: {PALETTE["blue"]}; font-weight: 600; }}
       .ao-details-btn:hover {{ color: {PALETTE["orange"]}; }}
+      .saved-prompts-grid {{ display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 16px; align-items: start; }}
+      .saved-prompts-dialog {{ width: min(1480px, 98vw) !important; max-width: 98vw !important; height: min(920px, 94vh) !important; max-height: 94vh !important; display: flex; flex-direction: column; overflow: hidden; }}
+      .saved-prompts-body {{ flex: 1; min-height: 0; }}
+      .saved-prompts-list {{ height: 100%; min-height: 0; overflow: auto; padding-right: 2px; }}
+      .saved-prompt-card {{ appearance: none; display: block; border: 1px solid {PALETTE["line"]}; background: #FFFFFF; border-radius: 8px; padding: 12px; cursor: pointer; text-align: left; transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }}
+      .saved-prompt-card:hover {{ border-color: #C7D7FE; background: #F8FAFF; box-shadow: 0 8px 24px rgba(16, 24, 40, .07); }}
+      .saved-prompt-text {{ color: {PALETTE["ink"]}; font-size: .9rem; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }}
       .ao-dialog {{ border-radius: 8px; border: 1px solid {PALETTE["line"]}; box-shadow: 0 24px 54px rgba(16, 24, 40, 0.16); }}
       .ao-dialog-title {{ font-size: 1.18rem; font-weight: 650; color: {PALETTE["ink"]}; line-height: 1.4; }}
       .ao-field-key {{ color: #6B7485; font-weight: 500; }}
@@ -115,6 +122,8 @@ ui.add_head_html(
         .argos-workspace, .home-split {{ grid-template-columns: 1fr; }}
         .argos-right-pane {{ position: static; max-height: none; overflow: visible; }}
         .argos-detail-home {{ grid-column: auto; grid-row: auto; }}
+        .saved-prompts-grid {{ grid-template-columns: 1fr; align-content: start; overflow: auto; }}
+        .saved-prompts-list {{ height: auto; max-height: 40vh; }}
       }}
     </style>
     """,
@@ -940,6 +949,9 @@ def page_home() -> None:
                                 ).props("flat dense").classes("text-xs")
 
                             launch_btn = ui.button("Rechercher", icon="search").props("unelevated").classes("px-6")
+                            saved_prompts_btn = ui.button(icon="bookmark").props('flat round dense aria-label="Prompts sauvegardés" data-testid="saved-prompts-button"')
+                            with saved_prompts_btn:
+                                ui.tooltip("Prompts sauvegardés")
 
                         with ui.column().classes("w-full gap-2"):
                             ui.label("Sources").classes("argos-section-title")
@@ -1122,8 +1134,8 @@ def page_home() -> None:
 
         _update_selection_controls()
 
-    async def on_launch(_e=None) -> None:
-        prompt = (prompt_input.value or "").strip()
+    async def launch_prompt(prompt: str, *, clear_prompt_input: bool = False) -> None:
+        prompt = (prompt or "").strip()
         date_pub_min = pub_min_input.value
         date_pub_max = pub_max_input.value
         selected_sites = [code for code, checkbox in source_checkboxes.items() if checkbox.value]
@@ -1155,9 +1167,86 @@ def page_home() -> None:
         asyncio.create_task(wiz.start_generation())
 
         # UX: reset input + refresh
-        prompt_input.value = ""
+        if clear_prompt_input:
+            prompt_input.value = ""
         refresh()
 
+    async def on_launch(_e=None) -> None:
+        await launch_prompt(prompt_input.value or "", clear_prompt_input=True)
+
+    prompts_dlg = ui.dialog()
+    with prompts_dlg, ui.card().classes("saved-prompts-dialog argos-panel"):
+        with ui.row().classes("w-full items-start justify-between gap-4"):
+            with ui.column().classes("gap-1"):
+                ui.label("Prompts sauvegardés").classes("text-xl font-bold")
+                saved_prompts_meta_label = ui.label("").classes("argos-muted text-sm")
+            ui.button(icon="close", on_click=prompts_dlg.close).props("flat round")
+
+        ui.separator().classes("my-3")
+
+        with ui.element("div").classes("saved-prompts-grid saved-prompts-body w-full"):
+            with ui.element("div").classes("ao-soft-section"):
+                with ui.column().classes("w-full gap-3"):
+                    ui.label("Ajouter un prompt").classes("argos-section-title")
+                    saved_prompt_input = (
+                        ui.textarea(
+                            label="Prompt",
+                            placeholder="Colle ou rédige un prompt réutilisable...",
+                        )
+                        .props("outlined autogrow")
+                        .classes("w-full")
+                    )
+                    save_prompt_btn = ui.button("Sauvegarder", icon="save").props("unelevated").classes("w-full")
+
+            with ui.column().classes("w-full gap-2 saved-prompts-list"):
+                saved_prompts_container = ui.column().classes("w-full gap-2")
+
+    def refresh_saved_prompts() -> None:
+        prompts = list(db_repository.list_saved_prompts(limit=200))
+        saved_prompts_meta_label.set_text(f"{len(prompts)} prompt" + ("s" if len(prompts) > 1 else ""))
+        saved_prompts_container.clear()
+        with saved_prompts_container:
+            if not prompts:
+                with ui.element("div").classes("ao-soft-section"):
+                    ui.label("Aucun prompt sauvegardé.").classes("argos-muted text-sm")
+                return
+
+            for item in prompts:
+                prompt = str(item.get("prompt") or "").strip()
+                updated_at = _fmt_dt(item.get("updated_at"))
+
+                async def launch_saved_prompt(_e=None, saved_prompt=prompt) -> None:
+                    prompts_dlg.close()
+                    await launch_prompt(saved_prompt)
+
+                with ui.element("button").classes("saved-prompt-card w-full").on("click", launch_saved_prompt):
+                    ui.label(prompt).classes("saved-prompt-text")
+                    if updated_at:
+                        ui.label(f"Mis à jour le {updated_at}").classes("argos-muted text-xs mt-2")
+
+    def open_saved_prompts_dialog(_e=None) -> None:
+        current_prompt = (prompt_input.value or "").strip()
+        if current_prompt:
+            saved_prompt_input.value = current_prompt
+        refresh_saved_prompts()
+        prompts_dlg.open()
+
+    def save_prompt_from_dialog(_e=None) -> None:
+        prompt = (saved_prompt_input.value or "").strip()
+        if not prompt:
+            ui.notify("Prompt vide.", type="warning")
+            return
+        try:
+            db_repository.save_prompt(prompt)
+        except Exception as e:
+            ui.notify(f"Erreur sauvegarde prompt: {e}", type="negative")
+            return
+        saved_prompt_input.value = ""
+        ui.notify("Prompt sauvegardé.", type="positive")
+        refresh_saved_prompts()
+
+    save_prompt_btn.on("click", save_prompt_from_dialog)
+    saved_prompts_btn.on("click", open_saved_prompts_dialog)
     launch_btn.on("click", on_launch)
     prompt_input.on("keydown.enter", on_launch)
 

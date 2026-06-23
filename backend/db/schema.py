@@ -32,6 +32,15 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 """
 
+DDL_SAVED_PROMPTS = """
+CREATE TABLE IF NOT EXISTS saved_prompts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prompt TEXT NOT NULL UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 DDL_APPELS_OFFRES = """
 CREATE TABLE IF NOT EXISTS appels_offres (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,6 +95,7 @@ CREATE TABLE IF NOT EXISTS raw_recherches (
 
 DDL_INDEXES = [
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_code ON sources(code)",
+    "CREATE INDEX IF NOT EXISTS idx_saved_prompts_updated_at ON saved_prompts(updated_at DESC, id DESC)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ao_lien ON appels_offres(lien)",
     "CREATE INDEX IF NOT EXISTS idx_ao_search_id ON appels_offres(search_id)",
     "CREATE INDEX IF NOT EXISTS idx_raw_recherches_search_lien ON raw_recherches(search_id, lien)",
@@ -96,6 +106,7 @@ def create_base_schema(conn) -> None:
     """Crée le schéma de base sans logique de migration."""
     cur = conn.cursor()
     cur.execute(DDL_SOURCES)
+    cur.execute(DDL_SAVED_PROMPTS)
     cur.execute(DDL_RECHERCHES_JOBS)
     cur.execute(DDL_APPELS_OFFRES)
     cur.execute(DDL_RAW_RECHERCHES)

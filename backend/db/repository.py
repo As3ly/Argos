@@ -280,6 +280,41 @@ def delete_recherche_jobs(search_ids: Sequence[int]) -> int:
         return cur.rowcount
 
 
+def save_prompt(prompt: str) -> int:
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise ValueError("Le prompt est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        conn.execute(
+            """
+            INSERT INTO saved_prompts(prompt, created_at, updated_at)
+            VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(prompt) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+            """,
+            (prompt,),
+        )
+        row = conn.execute("SELECT id FROM saved_prompts WHERE prompt = ? LIMIT 1", (prompt,)).fetchone()
+        if row is None:
+            raise RuntimeError("Impossible de récupérer le prompt sauvegardé.")
+        return int(row["id"])
+
+
+def list_saved_prompts(limit: int = 100) -> Iterable[Dict[str, Any]]:
+    with closing(get_conn()) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, prompt, created_at, updated_at
+            FROM saved_prompts
+            ORDER BY updated_at DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        for row in rows:
+            yield dict(row)
+
+
 # --- Fonctions historiques conservées telles quelles pour compatibilité ---
 def inserer_raw_recherche(*, search_id: int, source: str, mot_cle, html_contenu: str, lien: str):
     if isinstance(mot_cle, list):
