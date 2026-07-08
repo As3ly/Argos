@@ -300,6 +300,30 @@ def save_prompt(prompt: str) -> int:
         return int(row["id"])
 
 
+def update_saved_prompt(prompt_id: int, prompt: str) -> None:
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise ValueError("Le prompt est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        cur = conn.execute(
+            """
+            UPDATE saved_prompts
+            SET prompt = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (prompt, int(prompt_id)),
+        )
+        if cur.rowcount == 0:
+            raise ValueError("Prompt sauvegardé introuvable.")
+
+
+def delete_saved_prompt(prompt_id: int) -> int:
+    with closing(get_conn()) as conn, conn:
+        cur = conn.execute("DELETE FROM saved_prompts WHERE id = ?", (int(prompt_id),))
+        return int(cur.rowcount)
+
+
 def list_saved_prompts(limit: int = 100) -> Iterable[Dict[str, Any]]:
     with closing(get_conn()) as conn:
         rows = conn.execute(

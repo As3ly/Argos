@@ -108,6 +108,8 @@ ui.add_head_html(
       .saved-prompts-dialog {{ width: min(1480px, 98vw) !important; max-width: 98vw !important; height: min(920px, 94vh) !important; max-height: 94vh !important; display: flex; flex-direction: column; overflow: hidden; }}
       .saved-prompts-body {{ flex: 1; min-height: 0; }}
       .saved-prompts-list {{ height: 100%; min-height: 0; overflow: auto; padding-right: 2px; }}
+      .saved-prompt-row {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }}
+      .saved-prompt-actions {{ display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }}
       .saved-prompt-card {{ appearance: none; display: block; border: 1px solid {PALETTE["line"]}; background: #FFFFFF; border-radius: 8px; padding: 12px; cursor: pointer; text-align: left; transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }}
       .saved-prompt-card:hover {{ border-color: #C7D7FE; background: #F8FAFF; box-shadow: 0 8px 24px rgba(16, 24, 40, .07); }}
       .saved-prompt-text {{ color: {PALETTE["ink"]}; font-size: .9rem; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }}
@@ -293,6 +295,53 @@ def _source_summary(options: Sequence[Dict[str, str]]) -> str:
     return " + ".join(option.get("label") or option.get("code", "") for option in options)
 
 
+def _parse_job_params(params: Any) -> Dict[str, Any]:
+    raw = str(params or "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _format_recherche_period(job: Dict[str, Any]) -> str:
+    params = _parse_job_params(job.get("params"))
+    date_pub_min = _chip(params.get("date_pub_min"), "")
+    date_pub_max = _chip(params.get("date_pub_max"), "")
+    if date_pub_min and date_pub_max:
+        return f"Publication du {date_pub_min} au {date_pub_max}"
+    if date_pub_min:
+        return f"Publication à partir du {date_pub_min}"
+    if date_pub_max:
+        return f"Publication jusqu'au {date_pub_max}"
+    return ""
+
+
+def _format_job_params(job: Dict[str, Any]) -> str:
+    params = _parse_job_params(job.get("params"))
+    if not params:
+        return _chip(job.get("params"), "")
+
+    lines: List[str] = []
+    period = _format_recherche_period(job)
+    if period:
+        lines.append(period)
+
+    selected_sites = params.get("selected_sites")
+    if isinstance(selected_sites, list) and selected_sites:
+        lines.append(f"Sources sélectionnées: {_source_label(','.join(str(site) for site in selected_sites))}")
+
+    extra_lines = [
+        f"{key}: {value}"
+        for key, value in params.items()
+        if key not in {"date_pub_min", "date_pub_max", "selected_sites"} and value not in (None, "")
+    ]
+    lines.extend(extra_lines)
+    return "\n".join(lines)
+
+
 def build_job_card(
     job: Dict[str, Any],
     *,
@@ -469,7 +518,7 @@ def render_recherche_detail_panel(
     rid = int(job["id"])
     prompt_initial = _chip(job.get("prompt_initial"), "Prompt initial non stocké pour cet historique.")
     requete = _chip(job.get("requete"), "")
-    params = _chip(job.get("params"), "")
+    params = _format_job_params(job)
     keywords_and_params = "\n\n".join(part for part in [f"Mots-clés\n{requete}" if requete else "", f"Paramètres\n{params}" if params else ""] if part)
     details_open = False
     score_desc = True
@@ -481,7 +530,12 @@ def render_recherche_detail_panel(
                 if show_non_pertinent:
                     title += " · non pertinents"
                 ui.label(title).classes("argos-section-title")
-                ui.label(f"{_source_label(job.get('source'))} · {_chip(job.get('date_lancement'))}").classes("argos-muted text-sm")
+                detail_meta = [
+                    _source_label(job.get("source")),
+                    _chip(job.get("date_lancement")),
+                    _format_recherche_period(job),
+                ]
+                ui.label(" · ".join(part for part in detail_meta if part)).classes("argos-muted text-sm")
             with ui.row().classes("items-center gap-1 shrink-0"):
                 _render_status_badges(job)
                 if on_close:
@@ -1151,8 +1205,21 @@ def page_home() -> None:
 
         # Créer job
         source = ",".join(selected_sites)
+        search_params = json.dumps(
+            {
+                "date_pub_min": date_pub_min,
+                "date_pub_max": date_pub_max,
+                "selected_sites": selected_sites,
+            },
+            ensure_ascii=False,
+        )
         try:
-            search_id = create_job_for_prompt(source=source, statut="en_cours", prompt_initial=prompt)
+            search_id = create_job_for_prompt(
+                source=source,
+                statut="en_cours",
+                prompt_initial=prompt,
+                params=search_params,
+            )
         except Exception as e:
             ui.notify(f"Erreur création job: {e}", type="negative")
             return
@@ -1178,6 +1245,7 @@ def page_home() -> None:
         await launch_prompt(prompt_input.value or "", clear_prompt_input=True)
 
     prompts_dlg = ui.dialog()
+    editing_prompt_id: Optional[int] = None
     with prompts_dlg, ui.card().classes("saved-prompts-dialog argos-panel"):
         with ui.row().classes("w-full items-start justify-between gap-4"):
             with ui.column().classes("gap-1"):
@@ -1190,7 +1258,7 @@ def page_home() -> None:
         with ui.element("div").classes("saved-prompts-grid saved-prompts-body w-full"):
             with ui.element("div").classes("ao-soft-section"):
                 with ui.column().classes("w-full gap-3"):
-                    ui.label("Ajouter un prompt").classes("argos-section-title")
+                    saved_prompt_form_title = ui.label("Ajouter un prompt").classes("argos-section-title")
                     saved_prompt_input = (
                         ui.textarea(
                             label="Prompt",
@@ -1199,10 +1267,59 @@ def page_home() -> None:
                         .props("outlined autogrow")
                         .classes("w-full")
                     )
-                    save_prompt_btn = ui.button("Sauvegarder", icon="save").props("unelevated").classes("w-full")
+                    with ui.row().classes("w-full items-center gap-2"):
+                        save_prompt_btn = ui.button("Sauvegarder", icon="save").props("unelevated").classes("flex-1")
+                        cancel_prompt_edit_btn = ui.button("Annuler", icon="close").props("flat").classes("shrink-0")
 
             with ui.column().classes("w-full gap-2 saved-prompts-list"):
                 saved_prompts_container = ui.column().classes("w-full gap-2")
+
+    cancel_prompt_edit_btn.set_visibility(False)
+
+    def reset_saved_prompt_form(prefill: str = "") -> None:
+        nonlocal editing_prompt_id
+        editing_prompt_id = None
+        saved_prompt_form_title.set_text("Ajouter un prompt")
+        save_prompt_btn.set_text("Sauvegarder")
+        saved_prompt_input.value = prefill
+        cancel_prompt_edit_btn.set_visibility(False)
+
+    def edit_saved_prompt(prompt_id: int, prompt: str) -> None:
+        nonlocal editing_prompt_id
+        editing_prompt_id = int(prompt_id)
+        saved_prompt_form_title.set_text("Modifier le prompt")
+        save_prompt_btn.set_text("Enregistrer")
+        saved_prompt_input.value = prompt
+        cancel_prompt_edit_btn.set_visibility(True)
+
+    def confirm_delete_saved_prompt(prompt_id: int, prompt: str) -> None:
+        preview = prompt if len(prompt) <= 220 else f"{prompt[:220]}..."
+        dlg = ui.dialog()
+        with dlg, ui.card().classes("w-[min(560px,95vw)] argos-panel"):
+            ui.label("Supprimer le prompt").classes("text-lg font-bold")
+            ui.label("Ce prompt sauvegardé sera supprimé de la bibliothèque locale.").classes("argos-muted")
+            with ui.element("div").classes("ao-soft-section"):
+                ui.label(preview).classes("saved-prompt-text")
+
+            with ui.row().classes("w-full items-center justify-end gap-2"):
+                ui.button("Annuler", on_click=dlg.close).props("flat")
+
+                def delete_confirmed() -> None:
+                    try:
+                        deleted = db_repository.delete_saved_prompt(prompt_id)
+                    except Exception as e:
+                        ui.notify(f"Erreur suppression prompt: {e}", type="negative")
+                        return
+                    if deleted:
+                        if editing_prompt_id == prompt_id:
+                            reset_saved_prompt_form()
+                        ui.notify("Prompt supprimé.", type="positive")
+                    dlg.close()
+                    refresh_saved_prompts()
+
+                ui.button("Supprimer", icon="delete", on_click=delete_confirmed).props("unelevated").classes("bg-red-600 text-white")
+
+        dlg.open()
 
     def refresh_saved_prompts() -> None:
         prompts = list(db_repository.list_saved_prompts(limit=200))
@@ -1215,6 +1332,7 @@ def page_home() -> None:
                 return
 
             for item in prompts:
+                prompt_id = int(item.get("id") or 0)
                 prompt = str(item.get("prompt") or "").strip()
                 updated_at = _fmt_dt(item.get("updated_at"))
 
@@ -1222,32 +1340,55 @@ def page_home() -> None:
                     prompts_dlg.close()
                     await launch_prompt(saved_prompt)
 
-                with ui.element("button").classes("saved-prompt-card w-full").on("click", launch_saved_prompt):
-                    ui.label(prompt).classes("saved-prompt-text")
-                    if updated_at:
-                        ui.label(f"Mis à jour le {updated_at}").classes("argos-muted text-xs mt-2")
+                with ui.element("div").classes("saved-prompt-row w-full"):
+                    with ui.element("button").classes("saved-prompt-card w-full").on("click", launch_saved_prompt):
+                        ui.label(prompt).classes("saved-prompt-text")
+                        if updated_at:
+                            ui.label(f"Mis à jour le {updated_at}").classes("argos-muted text-xs mt-2")
+                    with ui.element("div").classes("saved-prompt-actions"):
+                        edit_btn = ui.button(
+                            icon="edit",
+                            on_click=lambda _e=None, _id=prompt_id, _prompt=prompt: edit_saved_prompt(_id, _prompt),
+                        ).props("flat round dense")
+                        with edit_btn:
+                            ui.tooltip("Modifier")
+                        delete_btn = ui.button(
+                            icon="delete",
+                            on_click=lambda _e=None, _id=prompt_id, _prompt=prompt: confirm_delete_saved_prompt(_id, _prompt),
+                        ).props("flat round dense").classes("text-red-600")
+                        with delete_btn:
+                            ui.tooltip("Supprimer")
 
     def open_saved_prompts_dialog(_e=None) -> None:
         current_prompt = (prompt_input.value or "").strip()
-        if current_prompt:
-            saved_prompt_input.value = current_prompt
+        reset_saved_prompt_form(current_prompt)
         refresh_saved_prompts()
         prompts_dlg.open()
 
     def save_prompt_from_dialog(_e=None) -> None:
+        nonlocal editing_prompt_id
         prompt = (saved_prompt_input.value or "").strip()
         if not prompt:
             ui.notify("Prompt vide.", type="warning")
             return
         try:
-            db_repository.save_prompt(prompt)
+            if editing_prompt_id is None:
+                db_repository.save_prompt(prompt)
+                message = "Prompt sauvegardé."
+            else:
+                db_repository.update_saved_prompt(editing_prompt_id, prompt)
+                message = "Prompt modifié."
+        except sqlite3.IntegrityError:
+            ui.notify("Ce prompt existe déjà.", type="warning")
+            return
         except Exception as e:
             ui.notify(f"Erreur sauvegarde prompt: {e}", type="negative")
             return
-        saved_prompt_input.value = ""
-        ui.notify("Prompt sauvegardé.", type="positive")
+        reset_saved_prompt_form()
+        ui.notify(message, type="positive")
         refresh_saved_prompts()
 
+    cancel_prompt_edit_btn.on("click", lambda _e=None: reset_saved_prompt_form())
     save_prompt_btn.on("click", save_prompt_from_dialog)
     saved_prompts_btn.on("click", open_saved_prompts_dialog)
     launch_btn.on("click", on_launch)
@@ -1297,7 +1438,12 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
                 with ui.column().classes("gap-1"):
                     page_title = f"Recherche #{rid} · AOs non pertinents" if show_non_pertinent else f"Recherche #{rid}"
                     ui.label(page_title).classes("argos-title")
-                    ui.label(f"{_source_label(job.get('source'))} · {_chip(job.get('date_lancement'))}").classes("argos-subtitle")
+                    detail_meta = [
+                        _source_label(job.get("source")),
+                        _chip(job.get("date_lancement")),
+                        _format_recherche_period(job),
+                    ]
+                    ui.label(" · ".join(part for part in detail_meta if part)).classes("argos-subtitle")
             with ui.row().classes("items-center gap-1"):
                 _render_status_badges(job)
 
@@ -1313,7 +1459,7 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
                     ui.label(_chip(job.get("prompt_initial"), "Prompt initial non stocké pour cet historique.")).classes("text-sm whitespace-pre-line")
 
                 requete = _chip(job.get("requete"), "")
-                params = _chip(job.get("params"), "")
+                params = _format_job_params(job)
                 keywords_and_params = "\n\n".join(
                     part
                     for part in [

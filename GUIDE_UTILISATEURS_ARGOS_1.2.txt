@@ -1,0 +1,226 @@
+ARGOS 1.2.0 - NOTE UTILISATEURS ET INSTALLATION SIMPLE
+========================================================
+
+Document de complement au guide "Guide_Argos_installation_utilisation.pdf".
+Ce fichier resume les changements visibles par les utilisateurs depuis ce guide
+et donne une procedure simple pour installer ou mettre a jour Argos.
+
+
+1. Nouveautes visibles cote utilisateurs
+----------------------------------------
+
+Version affichee dans l'interface
+
+- L'interface affiche maintenant la version courante, par exemple "v1.2.0",
+  en haut de l'ecran.
+- Les logs de la fenetre noire affichent aussi la version au demarrage.
+
+Executable versionne
+
+- L'executable distribue peut maintenant porter un nom versionne :
+  Argos-1.2.0-windows-x64.exe
+- Il remplace l'ancien nom generique Argos.exe dans les consignes
+  d'installation.
+
+Sources de recherche visibles
+
+- L'ecran de recherche affiche une zone "Sources".
+- Les sources disponibles sont cochees par defaut.
+- Les sources actuellement prevues sont BOAMP et TED / JOUE.
+- Pour une recherche standard, l'utilisateur peut laisser les sources cochees.
+
+Bouton "7 derniers jours"
+
+- Le bouton de periode rapide s'appelle maintenant "7 derniers jours".
+- Il remplit automatiquement la periode de publication sur les sept derniers
+  jours.
+
+Generation et validation des mots-cles
+
+- Apres avoir clique sur "Rechercher", Argos peut ouvrir une fenetre
+  "Nouvelle recherche".
+- Cette fenetre genere les mots-cles de recherche a partir du prompt.
+- L'utilisateur peut attendre la fin de la generation, verifier les groupes de
+  mots-cles, ajouter ou supprimer des groupes si besoin, puis lancer la
+  recherche.
+- Tant que cette etape n'est pas terminee, la collecte BOAMP / TED n'a pas
+  encore vraiment demarre.
+
+Bibliotheque de prompts sauvegardes
+
+- Un petit bouton avec une icone de marque-page est disponible a cote du bouton
+  "Rechercher".
+- Ce bouton ouvre une grande fenetre "Prompts sauvegardes".
+- Dans cette fenetre, l'utilisateur peut :
+  - ajouter un prompt reutilisable ;
+  - consulter les prompts deja sauvegardes ;
+  - cliquer sur un prompt sauvegarde pour lancer directement une nouvelle
+    recherche avec ce prompt.
+- Les prompts sauvegardes sont stockes localement sur le poste utilisateur.
+
+Historique ameliore
+
+- L'historique affiche le nombre total de recherches.
+- Une recherche peut etre selectionnee pour afficher ses details dans le panneau
+  de droite.
+- Le detail affiche le prompt initial, les mots-cles et les parametres de la
+  recherche.
+- L'utilisateur peut consulter les appels d'offres pertinents et les appels
+  d'offres non pertinents.
+- Les recherches de l'historique peuvent etre supprimees, avec confirmation.
+- Une recherche en cours ne doit pas etre supprimee.
+
+Donnees locales
+
+- Les donnees utilisateur ne sont plus stockees dans le dossier de l'executable.
+- Elles sont stockees dans :
+  %LOCALAPPDATA%\Argos\html_scrap.db
+- Les logs de demarrage sont stockes dans :
+  %LOCALAPPDATA%\Argos\argos_startup.log
+
+
+2. Installation simple pour un nouvel utilisateur
+------------------------------------------------
+
+Fichiers a fournir a l'utilisateur
+
+- Argos-1.2.0-windows-x64.exe
+- .env
+
+Le fichier .env contient la configuration Azure necessaire au fonctionnement
+d'Argos. Il ne doit pas etre supprime, renomme, ni deplace seul.
+
+Procedure
+
+1. Creer un dossier local pour Argos, par exemple :
+   C:\Users\<utilisateur>\Documents\Argos
+
+2. Copier dans ce dossier :
+   Argos-1.2.0-windows-x64.exe
+   .env
+
+3. Verifier que les deux fichiers sont bien dans le meme dossier.
+
+4. Double-cliquer sur :
+   Argos-1.2.0-windows-x64.exe
+
+5. Une fenetre noire s'ouvre.
+   Cette fenetre est normale : elle fait tourner le serveur local d'Argos.
+   Elle doit rester ouverte pendant toute l'utilisation.
+
+6. Le navigateur s'ouvre automatiquement sur :
+   http://127.0.0.1:8080
+
+7. Si le navigateur ne s'ouvre pas automatiquement, copier cette adresse dans
+   la barre d'adresse du navigateur :
+   http://127.0.0.1:8080
+
+
+3. Mise a jour pour un utilisateur qui avait deja Argos
+------------------------------------------------------
+
+1. Fermer l'ancienne version d'Argos :
+   - fermer l'onglet du navigateur ;
+   - fermer la fenetre noire.
+
+2. Ouvrir le dossier ou se trouve l'ancienne version d'Argos.
+
+3. Conserver le fichier .env existant.
+
+4. Remplacer l'ancien executable par :
+   Argos-1.2.0-windows-x64.exe
+
+5. Verifier que le dossier contient au minimum :
+   Argos-1.2.0-windows-x64.exe
+   .env
+
+6. Double-cliquer sur :
+   Argos-1.2.0-windows-x64.exe
+
+Les donnees de l'utilisateur sont conservees dans %LOCALAPPDATA%\Argos.
+Il n'est donc pas necessaire de copier l'ancienne base de donnees a la main.
+
+
+4. Exemple de contenu attendu pour le fichier .env
+-------------------------------------------------
+
+Ne pas mettre les vraies valeurs dans un guide public. Les valeurs ci-dessous
+sont uniquement un modele.
+
+AZURE_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxx
+AZURE_ENDPOINT=https://<ressource>.openai.azure.com
+DEPLOYMENT=<nom_du_deployment_azure>
+API_VERSION=2024-10-21
+AZURE_USE_PROXY=true
+
+Optionnel si le proxy doit etre force explicitement :
+
+AZURE_PROXY_URL=http://163.116.128.80:8080
+
+Important sous Windows :
+
+- Le fichier doit s'appeler exactement .env
+- Il ne doit pas s'appeler .env.txt
+- Si les extensions de fichiers sont masquees, verifier le nom du fichier dans
+  l'explorateur Windows ou avec PowerShell.
+
+
+5. Verification rapide apres installation
+-----------------------------------------
+
+Apres double-clic sur l'executable, verifier :
+
+- la fenetre noire affiche "START Argos v1.2.0" ;
+- le navigateur ouvre http://127.0.0.1:8080 ;
+- l'interface affiche "v1.2.0" ;
+- le bouton des prompts sauvegardes ouvre bien la grande fenetre ;
+- une recherche test peut etre lancee.
+
+
+6. Depannage utilisateur
+-----------------------
+
+Message "Configuration Azure incomplete"
+
+- Verifier que le fichier .env est dans le meme dossier que l'executable.
+- Verifier que le fichier s'appelle bien .env et pas .env.txt.
+- Verifier que les variables suivantes sont presentes :
+  AZURE_API_KEY
+  AZURE_ENDPOINT
+  DEPLOYMENT
+  API_VERSION
+
+La page ne s'ouvre pas
+
+- Attendre quelques secondes.
+- Copier http://127.0.0.1:8080 dans le navigateur.
+- Verifier que la fenetre noire est toujours ouverte.
+
+La page ne repond plus
+
+- Verifier que la fenetre noire est toujours ouverte.
+- Si elle a ete fermee, relancer l'executable.
+
+Une recherche semble bloquee
+
+- Ne pas fermer brutalement pendant une recherche.
+- Attendre quelques minutes.
+- Si necessaire, fermer Argos proprement puis relancer l'executable.
+
+Erreur de port deja utilise
+
+- Verifier qu'une autre instance d'Argos n'est pas deja ouverte.
+- Fermer les anciennes fenetres noires Argos.
+- Relancer l'executable.
+
+
+7. Rappel des bonnes pratiques
+------------------------------
+
+- Garder l'executable et le fichier .env ensemble dans le meme dossier.
+- Ne pas envoyer le fichier .env dans un canal non securise.
+- Ne pas lancer plusieurs instances d'Argos en meme temps.
+- Ne pas fermer la fenetre noire pendant une recherche.
+- Utiliser une periode de publication raisonnable.
+- Utiliser un prompt clair avec le metier, le type de marche, la zone
+  geographique et les exclusions importantes.

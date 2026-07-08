@@ -58,13 +58,20 @@ class KeywordsResult:
     titre_recherche: str = ""
 
 
-def create_job_for_prompt(*, source: str, statut: str = "en_cours", prompt_initial: str | None = None) -> int:
+def create_job_for_prompt(
+    *,
+    source: str,
+    statut: str = "en_cours",
+    prompt_initial: str | None = None,
+    params: str | None = None,
+) -> int:
     """Crée un job DB minimal. La requête sera remplie après validation des mots-clés."""
     initialize_database()
     return create_recherche_job(
         requete="en cours de génération",
         prompt_initial=prompt_initial,
         source=source,
+        params=params,
         statut=statut,
     )
 

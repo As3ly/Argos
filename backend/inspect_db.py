@@ -6,6 +6,7 @@ from db.repository import (  # noqa: F401
     add_appel_offre,
     count_recherche_jobs,
     create_recherche_job,
+    delete_saved_prompt,
     delete_recherche_jobs,
     ensure_source,
     get_appel_offre_by_lien,
@@ -22,6 +23,7 @@ from db.repository import (  # noqa: F401
     safe_delete_raw,
     safe_insert,
     save_prompt,
+    update_saved_prompt,
     update_recherche_job,
 )
 from db.schema import (  # noqa: F401
@@ -45,6 +47,7 @@ __all__ = [
     "add_appel_offre",
     "count_recherche_jobs",
     "create_recherche_job",
+    "delete_saved_prompt",
     "delete_recherche_jobs",
     "ensure_source",
     "get_appel_offre_by_lien",
@@ -61,6 +64,7 @@ __all__ = [
     "safe_delete_raw",
     "safe_insert",
     "save_prompt",
+    "update_saved_prompt",
     "update_recherche_job",
 ]
 
