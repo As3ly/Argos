@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["requests", "beautifulsoup4", "truststore", "framatome", "httpx", "jsonschema", "openai", "dotenv"]
+# dependencies = ["requests", "beautifulsoup4", "truststore", "httpx", "jsonschema", "openai", "dotenv"]
 # ///
 
 import re
@@ -8,7 +8,7 @@ import asyncio
 # main.py reste un "mode CLI" pratique pour tester sans UI.
 # L'orchestration propre (compatible serveur async) est dans pipeline.py.
 from pipeline import create_job_for_prompt, generate_keywords, run_full_pipeline
-from inspect_db import init_db, update_recherche_job
+from db.repository import initialize_database, update_recherche_job
 
 
 #################################### Init ###############################
@@ -21,10 +21,15 @@ prompt_client = (
 
 #################################### Script ###############################
 def main(prompt_client: str):
-    init_db()
+    initialize_database()
 
     # 1) Créer le job
-    search_id = create_job_for_prompt(source="francemarches", statut="en_cours")
+    selected_sites = ["boamp", "edf", "ted"]
+    search_id = create_job_for_prompt(
+        source=",".join(selected_sites),
+        statut="en_cours",
+        prompt_initial=prompt_client,
+    )
 
     # 2) Appel async N°1 : génération des mots-clés + meta_prompt
     kw = asyncio.run(generate_keywords(search_id=search_id, prompt_client=prompt_client))
@@ -107,6 +112,7 @@ def main(prompt_client: str):
             search_id=search_id,
             mots_recherche=mots_recherche,
             meta_prompt=meta_prompt,
+            selected_sites=selected_sites,
         )
     )
 

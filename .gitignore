@@ -14,6 +14,7 @@ ENV/
 # Environment / local config
 .env
 .env.*
+!.env.example
 .envrc
 
 # IDE / editor
@@ -24,3 +25,15 @@ ENV/
 backend/html_scrap.db
 backend/*.sqlite3
 backend/*.db
+html_scrap.db
+debug_*.html
+
+# Build/package artifacts
+build/
+dist/
+release/
+
+# Browser test artifacts
+.playwright-mcp/
+output/playwright/
+tmp/

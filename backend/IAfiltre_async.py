@@ -5,53 +5,113 @@ import random
 import sqlite3
 import asyncio
 import httpx
-import framatome
-import truststore
+from urllib.parse import urlparse
 
-from inspect_db import safe_insert, safe_delete_raw
+from db.repository import DB_PATH, safe_insert, safe_delete_raw
 from jsonschema import validate as jsonschema_validate, ValidationError
 from openai import AsyncAzureOpenAI
 from dotenv import load_dotenv
+from proxy_config import get_azure_proxy
+from tls_config import inject_truststore_once
 
 # ========================================================================
 # PROXY + ENV
 # ========================================================================
-truststore.inject_into_ssl()
+inject_truststore_once()
 load_dotenv()
 
-proxy = framatome.HTTPS_PROXY
-print("Proxy utilisé :", proxy)
+def _mask_secret(secret: str | None) -> str:
+    if not secret:
+        return "(vide)"
+    return f"{secret[:4]}****"
 
-subscription_key = os.getenv("AZURE_API_KEY")
-print("AZURE_API_KEY chargé :", (subscription_key or '')[:4] + "****")
 
 # ========================================================================
 # OPENAI CONFIG
 # ========================================================================
-AZURE_ENDPOINT = "https://fcffroaidevgenialab01.openai.azure.com/"
-DEPLOYMENT = "DTI-gpt-5-mini-01"
-API_VERSION = "2024-12-01-preview"
+PROMPT_GEN_MAX_TOKENS = int(os.getenv("PROMPT_GEN_MAX_TOKENS", "9000"))
 
-# Timeout augmenté pour éviter les timeouts proxy
-HTTP_TIMEOUT = 45.0
+_async_client: AsyncAzureOpenAI | None = None
+_deployment: str | None = None
 
-httpx_client = httpx.AsyncClient(
-    transport=httpx.AsyncHTTPTransport(proxy=proxy, verify=True),
-    timeout=HTTP_TIMEOUT,
-)
 
-async_client = AsyncAzureOpenAI(
-    api_key=subscription_key,
-    azure_endpoint=AZURE_ENDPOINT,
-    api_version=API_VERSION,
-    http_client=httpx_client
-)
+def _get_azure_config() -> tuple[str, str, str, str, str | None]:
+    """Charge la configuration Azure à la demande, sans faire planter l'import du module."""
+    subscription_key = os.getenv("AZURE_API_KEY")
+    azure_endpoint = os.getenv("AZURE_ENDPOINT")
+    deployment = os.getenv("DEPLOYMENT")
+    api_version = os.getenv("API_VERSION")
+
+    missing_azure_env = [
+        name for name, value in (
+            ("AZURE_API_KEY", subscription_key),
+            ("AZURE_ENDPOINT", azure_endpoint),
+            ("DEPLOYMENT", deployment),
+            ("API_VERSION", api_version),
+        )
+        if not value
+    ]
+    if missing_azure_env:
+        raise RuntimeError(
+            "Configuration Azure incomplète. Variables manquantes: "
+            + ", ".join(missing_azure_env)
+        )
+
+    return subscription_key, azure_endpoint, deployment, api_version, get_azure_proxy()
+
+
+def get_async_client() -> AsyncAzureOpenAI:
+    """Construit le client Azure OpenAI au premier appel réel à l'IA."""
+    global _async_client, _deployment
+    if _async_client is not None:
+        return _async_client
+
+    subscription_key, azure_endpoint, deployment, api_version, proxy = _get_azure_config()
+
+    print("Proxy utilisé :", proxy if proxy else "(désactivé)")
+    print("AZURE_API_KEY chargé :", _mask_secret(subscription_key))
+
+    connect_timeout_s = float(os.getenv("AZURE_CONNECT_TIMEOUT_S", "10"))
+    read_timeout_s = float(os.getenv("AZURE_READ_TIMEOUT_S", "120"))
+    write_timeout_s = float(os.getenv("AZURE_WRITE_TIMEOUT_S", "30"))
+    pool_timeout_s = float(os.getenv("AZURE_POOL_TIMEOUT_S", "30"))
+    http_timeout = httpx.Timeout(
+        connect=connect_timeout_s,
+        read=read_timeout_s,
+        write=write_timeout_s,
+        pool=pool_timeout_s,
+    )
+
+    transport_kwargs = {"verify": True}
+    if proxy:
+        transport_kwargs["proxy"] = proxy
+
+    httpx_client = httpx.AsyncClient(
+        transport=httpx.AsyncHTTPTransport(**transport_kwargs),
+        timeout=http_timeout,
+    )
+
+    _deployment = deployment
+    _async_client = AsyncAzureOpenAI(
+        api_key=subscription_key,
+        azure_endpoint=azure_endpoint,
+        api_version=api_version,
+        http_client=httpx_client,
+    )
+    return _async_client
+
+
+def get_deployment() -> str:
+    if _deployment is None:
+        get_async_client()
+    assert _deployment is not None
+    return _deployment
 
 # ========================================================================
 # JSON SCHEMA (inchangé)
 # ========================================================================
-JSON_SCHEMA = {
-    "name": "appels_offres_schema_v2",
+EXTRACTION_SCHEMA = {
+    "name": "appels_offres_extraction_schema_v2",
     "schema": {
         "type": "object",
         "properties": {
@@ -59,7 +119,6 @@ JSON_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "titre": {"type": ["string", "null"]},
-                    "source": {"type": ["string", "null"]},
                     "date_publication": {"type": ["string", "null"]},
                     "date_cloture": {"type": ["string", "null"]},
                     "lieu": {"type": ["string", "null"]},
@@ -72,19 +131,30 @@ JSON_SCHEMA = {
                     "raison": {"type": ["string", "null"]},
                     "secteur": {"type": ["string", "null"]},
                     "mot_cle": {"type": ["string", "null"]},
-                    "lien": {"type": ["string", "null"]},
-                    "search_id": {"type": "integer"}
+                    "lien": {"type": ["string", "null"]}
                 },
                 "required": [
-                    "titre", "source", "date_publication", "date_cloture", "lieu",
+                    "titre", "date_publication", "date_cloture", "lieu",
                     "budget", "type_marche", "acheteur", "reference", "score_ia",
-                    "tags", "raison", "secteur", "mot_cle", "lien", "search_id"
+                    "tags", "raison", "secteur", "mot_cle", "lien"
                 ],
                 "additionalProperties": False
-            },
+            }
+        },
+        "required": ["extraction"],
+        "additionalProperties": False
+    },
+    "strict": True
+}
+
+CLASSIFICATION_SCHEMA = {
+    "name": "appels_offres_classification_schema_v1",
+    "schema": {
+        "type": "object",
+        "properties": {
             "pertinent": {"type": "boolean"}
         },
-        "required": ["extraction", "pertinent"],
+        "required": ["pertinent"],
         "additionalProperties": False
     },
     "strict": True
@@ -99,19 +169,19 @@ CRITERES_GEN_SCHEMA = {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 5,
-                "maxItems": 15
+                "maxItems": 50
             },
             "regles": {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 2,
-                "maxItems": 10
+                "maxItems": 50
             },
             "mots_recherche": {
                 "type": "array",
                 "items": {"type": "string"},
                 "minItems": 3,
-                "maxItems": 20
+                "maxItems": 50
             },
             "titre_recherche": {
                 "type": "string",
@@ -127,14 +197,13 @@ CRITERES_GEN_SCHEMA = {
 # ========================================================================
 # PROMPTS
 # ========================================================================
-SYSTEM_PROMPT = """
-Tu es un agent spécialisé en extraction, structuration, classification et qualification d'appels d'offres.
+SYSTEM_PROMPT_EXTRACTION = """
+Tu es un agent spécialisé en extraction et structuration d'appels d'offres.
 
 OBJECTIFS :
 1) Lire l'appel d'offre.
 2) Extraire les champs définis dans le schéma JSON.
-3) Déterminer pertinence.
-4) Retourner STRICTEMENT un JSON conforme.
+3) Retourner STRICTEMENT un JSON conforme.
 
 RÈGLES :
 - Aucune invention.
@@ -144,15 +213,26 @@ RÈGLES :
 - Sortie 100% JSON strict.
 """
 
+SYSTEM_PROMPT_CLASSIFICATION = """
+Tu es un agent spécialisé en classification et qualification d'appels d'offres.
+
+OBJECTIFS :
+1) Lire l'appel d'offre et les critères de pertinence.
+2) Déterminer uniquement si l'appel est pertinent (true/false).
+3) Retourner STRICTEMENT un JSON conforme.
+
+RÈGLES :
+- Aucune invention.
+- La décision doit se baser sur le contenu fourni.
+- Sortie 100% JSON strict.
+"""
+
 # ========================================================================
 # Génèration Prompt
 # ========================================================================
 
-DB_PATH = "backend/html_scrap.db"
 
-
-
-async def generate_criteres_prompt_json(search_id: int, user_description: str) -> list | None:
+async def generate_criteres_prompt_json(search_id: int, user_description: str) -> list:
     print(f"[PROMPT-GEN] Génération de critères (JSON compact) pour search_id={search_id}")
 
     SYSTEM = """
@@ -278,16 +358,19 @@ Instructions :
 - Génère UNIQUEMENT le JSON court attendu.
 """
 
-    async def _one_try(attempt: int):
-        print(f"[PROMPT-GEN] Appel Azure (tentative {attempt})")
-        resp = await async_client.chat.completions.create(
-            model=DEPLOYMENT,
+    async def _one_try(attempt: int, max_completion_tokens: int):
+        print(
+            f"[PROMPT-GEN] Appel Azure (tentative {attempt}, "
+            f"max_completion_tokens={max_completion_tokens})"
+        )
+        resp = await get_async_client().chat.completions.create(
+            model=get_deployment(),
             messages=[
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": USER}
             ],
             response_format={"type": "json_schema", "json_schema": CRITERES_GEN_SCHEMA},
-            max_completion_tokens=2000,
+            max_completion_tokens=max_completion_tokens,
         )
 
         # Debug helpful: finish_reason
@@ -302,23 +385,35 @@ Instructions :
 
     # Retry exponentiel (3 tentatives)
     raw = ""
-    for attempt in range(1, 4):
+    max_attempts = 3
+    token_step = 1000
+    token_cap = 14000
+
+    for attempt in range(1, max_attempts + 1):
+        current_tokens = min(PROMPT_GEN_MAX_TOKENS + ((attempt - 1) * token_step), token_cap)
         try:
-            raw = await _one_try(attempt)
+            raw = await _one_try(attempt, current_tokens)
             if raw:
                 break
             else:
-                print("[PROMPT-GEN] ⚠ Réponse Azure vide → retry…")
+                print(
+                    f"[PROMPT-GEN] ⚠ Réponse Azure vide → retry "
+                    f"(prochaine tentative avec tokens accrus)."
+                )
         except Exception as e:
-            print(f"[PROMPT-GEN] ⚠ Erreur Azure : {e}")
+            print(f"[PROMPT-GEN] ⚠ Erreur Azure ({type(e).__name__}) : {e!r}")
 
+        if attempt == max_attempts:
+            break
         wait = (2 ** (attempt - 1)) + random.random()
         print(f"[PROMPT-GEN] Retry dans {wait:.1f}s…")
         await asyncio.sleep(wait)
 
     if not raw:
-        print("[PROMPT-GEN] ❌ Toujours vide après retries → abandon.")
-        return None
+        raise TimeoutError(
+            "Azure n'a retourné aucune réponse pour la génération des mots-clés "
+            "après 3 tentatives."
+        )
 
     # Parse JSON
     try:
@@ -326,7 +421,7 @@ Instructions :
     except Exception as e:
         print(f"[PROMPT-GEN] ❌ Erreur JSON parse : {e}")
         print(raw[:300])
-        return None
+        raise ValueError("Réponse Azure non JSON pour la génération des critères.") from e
 
     # Validation strict JSON Schema
     try:
@@ -334,7 +429,9 @@ Instructions :
     except ValidationError as e:
         print(f"[PROMPT-GEN] ❌ JSON non conforme : {e.message}")
         print(raw[:300])
-        return None
+        raise ValueError(
+            f"JSON Azure non conforme au schéma de génération: {e.message}"
+        ) from e
 
     criteres = data["criteres"]
     regles = data["regles"]
@@ -374,11 +471,11 @@ Instructions :
 
     except Exception as e:
         print(f"[PROMPT-GEN] ❌ Erreur DB : {e}")
-        return None
+        raise RuntimeError("Impossible d'enregistrer les critères générés en base.") from e
     finally:
         try:
             conn.close()
-        except:
+        except Exception:
             pass
     
     normalized = []
@@ -410,7 +507,18 @@ semaphore = asyncio.Semaphore(10)
 def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
     """Valide le JSON via jsonschema."""
     try:
-        jsonschema_validate(raw_json, JSON_SCHEMA["schema"])
+        extraction = raw_json.get("extraction")
+        if extraction is None:
+            raise ValidationError("'extraction' est requis")
+
+        # Validation extraction et classification séparées : depuis le refactor,
+        # le payload final contient les deux blocs et ne doit pas être validé
+        # directement contre le schéma extraction strict (additionalProperties=False).
+        jsonschema_validate({"extraction": extraction}, EXTRACTION_SCHEMA["schema"])
+
+        if "pertinent" not in raw_json:
+            raise ValidationError("'pertinent' est requis")
+        jsonschema_validate({"pertinent": raw_json["pertinent"]}, CLASSIFICATION_SCHEMA["schema"])
         return True
     except ValidationError as e:
         print(f"[RAW {raw_id}] ❌ JSON non valide : {e.message}")
@@ -423,31 +531,41 @@ def validate_ai_json(raw_json: dict, raw_id: int) -> bool:
 # RETRY EXPONENTIEL - FONCTION EXTRACTION AI
 # ========================================================================
 async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PERTINENCE: str):
-    """Appelle Azure OpenAI avec retry exponentiel + jitter."""
+    """Extraction structurée via Azure OpenAI avec retry exponentiel + jitter."""
     async with semaphore:
-        max_attempts = 5
+        max_attempts = 3
         base_delay = 1
+        base_max_tokens = 9000
+        token_step = 1000
+        token_cap = 14000
 
         for attempt in range(1, max_attempts + 1):
+            current_tokens = min(base_max_tokens + ((attempt - 1) * token_step), token_cap)
             try:
-                print(f"[RAW {raw_id}] Appel Azure (tentative {attempt})")
+                print(
+                    f"[RAW {raw_id}] Appel Azure (tentative {attempt}, "
+                    f"max_completion_tokens={current_tokens})"
+                )
 
-                response = await async_client.chat.completions.create(
-                    model=DEPLOYMENT,
+                response = await get_async_client().chat.completions.create(
+                    model=get_deployment(),
                     messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT + CRITERES_PERTINENCE},
+                        {"role": "system", "content": SYSTEM_PROMPT_EXTRACTION + CRITERES_PERTINENCE},
                         {"role": "user", "content": f"search_id={search_id}\n\n{ao_text}"}
                     ],
-                    response_format={"type": "json_schema", "json_schema": JSON_SCHEMA},
-                    max_completion_tokens=2000
+                    response_format={"type": "json_schema", "json_schema": EXTRACTION_SCHEMA},
+                    max_completion_tokens=current_tokens
                 )
 
                 raw = response.choices[0].message.content
                 print(f"[RAW {raw_id}] Réponse Azure (100 chars) : {raw[:100]!r}")
 
                 if not raw:
-                    print(f"[RAW {raw_id}] ❌ Réponse vide Azure.")
-                    return None
+                    print(
+                        f"[RAW {raw_id}] ⚠️ Réponse vide Azure → retry "
+                        f"(prochaine tentative avec tokens accrus)."
+                    )
+                    raise ValueError("Réponse Azure vide en extraction")
 
                 try:
                     parsed = json.loads(raw)
@@ -458,8 +576,10 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
                     return None
 
             except Exception as e:
-                print(f"[RAW {raw_id}] ⚠️ Erreur Azure : {e}")
+                print(f"[RAW {raw_id}] ⚠️ Erreur Azure ({type(e).__name__}) : {e!r}")
 
+            if attempt == max_attempts:
+                break
             # Retry
             wait = base_delay * (2 ** (attempt - 1))
             wait += random.random()
@@ -469,10 +589,97 @@ async def limited_extract(ao_text: str, search_id: int, raw_id: int, CRITERES_PE
         print(f"[RAW {raw_id}] ❌ Échec final après {max_attempts} tentatives")
         return None
 
+
+async def limited_classify(ao_text: str, search_id: int, raw_id: int, CRITERES_PERTINENCE: str, extraction: dict):
+    """Classification de pertinence via un second appel IA dédié."""
+    async with semaphore:
+        max_attempts = 5
+        base_delay = 1
+        base_max_tokens = 800
+        token_step = 200
+        token_cap = 2000
+
+        for attempt in range(1, max_attempts + 1):
+            current_tokens = min(base_max_tokens + ((attempt - 1) * token_step), token_cap)
+            try:
+                print(
+                    f"[RAW {raw_id}] Appel Azure classification (tentative {attempt}, "
+                    f"max_completion_tokens={current_tokens})"
+                )
+
+                response = await get_async_client().chat.completions.create(
+                    model=get_deployment(),
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT_CLASSIFICATION + CRITERES_PERTINENCE},
+                        {
+                            "role": "user",
+                            "content": (
+                                f"search_id={search_id}\n\n"
+                                f"EXTRACTION_DONNEES={json.dumps(extraction, ensure_ascii=False)}\n\n"
+                                f"CONTENU_BRUT={ao_text}"
+                            ),
+                        }
+                    ],
+                    response_format={"type": "json_schema", "json_schema": CLASSIFICATION_SCHEMA},
+                    max_completion_tokens=current_tokens,
+                )
+
+                raw = response.choices[0].message.content
+                print(f"[RAW {raw_id}] Réponse classification (100 chars) : {raw[:100]!r}")
+
+                if not raw:
+                    print(
+                        f"[RAW {raw_id}] ⚠️ Réponse vide classification → retry "
+                        f"(prochaine tentative avec tokens accrus)."
+                    )
+                    raise ValueError("Réponse Azure vide en classification")
+
+                try:
+                    parsed = json.loads(raw)
+                    return parsed
+                except Exception as e:
+                    print(f"[RAW {raw_id}] ❌ JSON classification cassé : {e}")
+                    print(raw)
+                    return None
+
+            except Exception as e:
+                print(
+                    f"[RAW {raw_id}] ⚠️ Erreur Azure classification ({type(e).__name__}) : {e!r}"
+                )
+
+            if attempt == max_attempts:
+                break
+            wait = base_delay * (2 ** (attempt - 1))
+            wait += random.random()
+            print(f"[RAW {raw_id}] Retry classification dans {wait:.1f} sec…")
+            await asyncio.sleep(wait)
+
+        print(f"[RAW {raw_id}] ❌ Échec classification après {max_attempts} tentatives")
+        return None
+
 # ========================================================================
 # TRAITEMENT D'UN RAW
 # ========================================================================
-async def handle_single_raw(raw_id: int, html_content: str, lien: str, search_id: int, crit: str):
+def resolve_source(job_source: str | None, lien: str) -> str:
+    if isinstance(job_source, str) and job_source.strip():
+        return job_source.strip()
+
+    parsed = urlparse((lien or "").strip())
+    netloc = (parsed.netloc or "").strip().lower()
+    if netloc:
+        return netloc
+
+    return "unknown_source"
+
+
+async def handle_single_raw(
+    raw_id: int,
+    html_content: str,
+    lien: str,
+    search_id: int,
+    source: str,
+    crit: str,
+):
 
     print(f"[RAW {raw_id}] Début traitement")
     result = await limited_extract(html_content, search_id, raw_id, crit)
@@ -481,35 +688,54 @@ async def handle_single_raw(raw_id: int, html_content: str, lien: str, search_id
         print(f"[RAW {raw_id}] ❌ Extraction IA échouée → RAW conservé")
         return
 
+    extraction = result.get("extraction")
+    if extraction is None:
+        print(f"[RAW {raw_id}] ❌ Extraction absente du JSON IA → pas d'insertion, pas de suppression")
+        return
+
+    classification = await limited_classify(html_content, search_id, raw_id, crit, extraction)
+    if classification is None:
+        print(f"[RAW {raw_id}] ❌ Classification IA échouée → RAW conservé")
+        return
+
+    result["pertinent"] = classification.get("pertinent")
+
     if not validate_ai_json(result, raw_id):
         print(f"[RAW {raw_id}] ❌ JSON IA invalide → pas d'insertion, pas de suppression")
         return
 
-    extraction = result["extraction"]
     pertinent = result["pertinent"]
     
     
     if not pertinent:
         print(f"[RAW {raw_id}] 🚫 Non pertinent")
-        safe_insert(extraction, pertinent, raw_id, lien)
+        safe_insert(extraction, pertinent, raw_id, lien, source=source, search_id=search_id)
         safe_delete_raw(raw_id, search_id)   #il faudra qu'on choisisse si on garde ou pas
         return
 
 
-    safe_insert(extraction, pertinent, raw_id, lien)
+    safe_insert(extraction, pertinent, raw_id, lien, source=source, search_id=search_id)
     safe_delete_raw(raw_id, search_id)
 
 # ========================================================================
 # TRAITEMENT GLOBAL
 # ========================================================================
 async def process_search_id_async(search_id: int, user_description: str):
-    conn = sqlite3.connect("backend/html_scrap.db", timeout=30)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
     cur = conn.cursor()
     
     cur.execute("""
-        SELECT id, html_contenu, lien
+        SELECT source
+        FROM recherches_jobs
+        WHERE id = ?
+    """, (search_id,))
+    row = cur.fetchone()
+    job_source = row[0] if row else None
+
+    cur.execute("""
+        SELECT id, html_contenu, lien, source
         FROM raw_recherches
         WHERE search_id = ?
     """, (search_id,))
@@ -517,10 +743,11 @@ async def process_search_id_async(search_id: int, user_description: str):
     conn.close()
 
     tasks = []
-    for raw_id, html_content, lien in raws:
+    for raw_id, html_content, lien, raw_source in raws:
         if html_content and len(html_content.strip()) > 50:
+            source = resolve_source(raw_source or job_source, lien)
             tasks.append(asyncio.create_task(
-                handle_single_raw(raw_id, html_content, lien, search_id, user_description)
+                handle_single_raw(raw_id, html_content, lien, search_id, source, user_description)
             ))
 
     await asyncio.gather(*tasks)
