@@ -4,8 +4,11 @@ Argos est un outil de **veille d'appels d'offres** orienté technique.
 Il automatise 3 étapes :
 
 1. Générer des mots-clés pertinents à partir d'un besoin en langage naturel (Azure OpenAI).
-2. Scraper des appels d'offres via les API BOAMP et TED/JOUE.
+2. Scraper des appels d'offres via les API BOAMP et TED/JOUE et le portail public EDF.
 3. Trier / scorer les résultats avec l'IA et les afficher dans une interface NiceGUI.
+
+Le guide illustré à jour est disponible ici :
+[Guide Argos - installation et utilisation v1.2](output/pdf/Guide_Argos_installation_utilisation_v1.2.pdf).
 
 ---
 
@@ -13,7 +16,8 @@ Il automatise 3 étapes :
 
 - Génération de **mots-clés métier** et d'un **méta-prompt** de pertinence.
 - Génération automatique d'un **titre de recherche** (`titre_recherche`) stocké en base.
-- Scraping paginé BOAMP/TED + dédoublonnage des liens.
+- Scraping paginé BOAMP/TED/EDF + dédoublonnage des liens.
+- Erreurs de source non bloquantes, visibles dans le détail de la recherche.
 - Stockage SQLite des jobs, raws, et appels d'offres enrichis.
 - UI NiceGUI pour lancer les recherches et consulter les résultats.
 
@@ -74,9 +78,15 @@ API_VERSION=2024-10-21
 # Proxy Azure (optionnels)
 # AZURE_USE_PROXY=true
 # AZURE_PROXY_URL=http://proxy:8080
-# Proxy scrapers BOAMP/TED (optionnels)
+# Proxy scrapers BOAMP/TED/EDF (optionnels)
 # ARGOS_HTTP_PROXY=http://proxy:8080
 # ARGOS_HTTPS_PROXY=http://proxy:8080
+# EDF : comportement par défaut, sans tentative de réutiliser une session validée
+ARGOS_EDF_CAPTCHA_MODE=fail
+# À définir uniquement après autorisation explicite d'EDF :
+# ARGOS_EDF_CAPTCHA_MODE=prevalidated_session
+# ARGOS_EDF_SCRAPING_AUTHORIZED=true
+# ARGOS_EDF_AUTHORIZED_SESSION_COOKIE=ASP.NET_SessionId=...; autre_cookie=...
 # Optionnel: surcharge DB
 # ARGOS_DB_PATH=/chemin/vers/html_scrap.db
 ```
@@ -130,7 +140,7 @@ Ce mode permet d'éditer manuellement les groupes de mots-clés avant le scrapin
 
 1. Saisir un prompt métier.
 2. Choisir la période de publication.
-3. Sélectionner les sources BOAMP et/ou TED.
+3. Sélectionner les sources BOAMP, EDF et/ou TED.
 4. Lancer la recherche.
 5. Ajuster les mots-clés proposés (ajout/suppression).
 6. Valider pour exécuter scraping + tri IA.
@@ -213,6 +223,12 @@ backend/
   - Réduire `PROMPT_GEN_MAX_TOKENS` (ex: `700` à `900`) pour accélérer la réponse.
 - **Aucun résultat**
   - Élargir la période, assouplir le prompt, retirer des exclusions trop strictes.
+- **EDF demande un CAPTCHA**
+  - Avec `ARGOS_EDF_CAPTCHA_MODE=fail`, Argos ne contourne pas ce contrôle. EDF est ignoré pour cette exécution, une erreur est affichée dans le détail et les autres sources continuent normalement.
+  - Après autorisation explicite d'EDF, `prevalidated_session` permet de réutiliser un cookie de session officiellement validé. Un booléen seul ne résout pas le CAPTCHA : le cookie doit être fourni par EDF ou extrait d'une session autorisée, et renouvelé lorsqu'il expire.
+  - Le cookie est un secret : le conserver uniquement dans `.env`, ne jamais l'ajouter au dépôt ni aux logs.
+- **EDF signale une politique d'accès incompatible**
+  - Le domaine publie actuellement `User-agent: * / Disallow: /`. La source reste désactivée tant qu'EDF n'a pas autorisé la collecte. Après obtention de cette autorisation, un administrateur peut définir `ARGOS_EDF_SCRAPING_AUTHORIZED=true` et configurer le mode de session ci-dessus.
 - **UI ne démarre pas**
   - Vérifier que NiceGUI est bien installée dans l'environnement `uv`.
 

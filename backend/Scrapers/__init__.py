@@ -1,15 +1,20 @@
 from .scrap_boamp import scrape_boamp_into_raw
+from .scrap_edf import scrape_edf_into_raw
 from .scrap_ted import scrape_ted_into_raw
 from datetime import date
 from typing import Any, Sequence
 
+from db.repository import append_recherche_job_warning
+
 SCRAPER_LABELS = {
     "boamp": "BOAMP",
+    "edf": "EDF - Portail fournisseurs",
     "ted": "TED / JOUE",
 }
 
 SCRAPERS = [
     ("boamp", scrape_boamp_into_raw),
+    ("edf", scrape_edf_into_raw),
     ("ted", scrape_ted_into_raw),
 ]
 
@@ -55,6 +60,26 @@ def run_all_scrapers(
         except Exception as e:
             print(f"[SCRAPER] ERREUR: {name} -> {e}")
             errors.append((name, repr(e)))
+            warning_type = getattr(e, "warning_type", "scraper_error")
+            detail = str(getattr(e, "user_message", "") or "").strip()
+            message = detail or (
+                f"La source {SCRAPER_LABELS.get(name, name)} n'a pas pu être interrogée "
+                f"({type(e).__name__}). La recherche a continué avec les autres sources."
+            )
+            try:
+                append_recherche_job_warning(
+                    search_id,
+                    {
+                        "type": warning_type,
+                        "severity": "error",
+                        "source": name,
+                        "message": message,
+                    },
+                )
+            except Exception as warning_error:
+                # Une base momentanément verrouillée ne doit pas transformer une erreur
+                # de source partielle en arrêt complet de la recherche multi-source.
+                print(f"[SCRAPER] Impossible de persister l'alerte {name}: {warning_error}")
             if not continue_on_error:
                 raise
 

@@ -14,6 +14,7 @@ ENV/
 # Environment / local config
 .env
 .env.*
+!.env.example
 .envrc
 
 # IDE / editor
@@ -34,3 +35,5 @@ release/
 
 # Browser test artifacts
 .playwright-mcp/
+output/playwright/
+tmp/

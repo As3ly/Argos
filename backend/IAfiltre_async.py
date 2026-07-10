@@ -5,7 +5,6 @@ import random
 import sqlite3
 import asyncio
 import httpx
-import truststore
 from urllib.parse import urlparse
 
 from db.repository import DB_PATH, safe_insert, safe_delete_raw
@@ -13,11 +12,12 @@ from jsonschema import validate as jsonschema_validate, ValidationError
 from openai import AsyncAzureOpenAI
 from dotenv import load_dotenv
 from proxy_config import get_azure_proxy
+from tls_config import inject_truststore_once
 
 # ========================================================================
 # PROXY + ENV
 # ========================================================================
-truststore.inject_into_ssl()
+inject_truststore_once()
 load_dotenv()
 
 def _mask_secret(secret: str | None) -> str:

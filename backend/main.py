@@ -24,7 +24,7 @@ def main(prompt_client: str):
     initialize_database()
 
     # 1) Créer le job
-    selected_sites = ["boamp", "ted"]
+    selected_sites = ["boamp", "edf", "ted"]
     search_id = create_job_for_prompt(
         source=",".join(selected_sites),
         statut="en_cours",

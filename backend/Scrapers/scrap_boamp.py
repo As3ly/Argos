@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from datetime import date, timedelta
 from urllib.parse import quote
@@ -8,16 +7,11 @@ from typing import Any
 
 import requests
 
-from db.repository import inserer_raw_recherche, raw_lien_existe, update_recherche_job, increment_recherche_job_counts
+from db.repository import append_recherche_job_warning, inserer_raw_recherche, raw_lien_existe, increment_recherche_job_counts
 from proxy_config import get_requests_proxies
+from tls_config import inject_truststore_once
 
-try:
-    import truststore
-
-    truststore.inject_into_ssl()
-except ImportError:
-    # En local hors environnement entreprise, le script doit rester importable.
-    pass
+inject_truststore_once()
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -261,8 +255,5 @@ def scrape_boamp_into_raw(
             "message": "Limite BOAMP atteinte pour certaines recherches trop larges.",
             "limited_searches": recherches_limitees,
         }
-        update_recherche_job(
-            search_id,
-            warnings_json=json.dumps(warning_payload, ensure_ascii=False),
-        )
+        append_recherche_job_warning(search_id, warning_payload)
     increment_recherche_job_counts(search_id, nb_trouves_delta=nb_inserts)

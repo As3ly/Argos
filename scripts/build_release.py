@@ -82,15 +82,20 @@ def assert_corporate_constraints() -> None:
         if expected not in proxy_config:
             raise RuntimeError(f"Proxy Fra manquant dans backend/proxy_config.py: {expected}")
 
-    ssl_files = [
+    ssl_callers = [
         ROOT / "backend" / "IAfiltre_async.py",
         ROOT / "backend" / "Scrapers" / "scrap_boamp.py",
+        ROOT / "backend" / "Scrapers" / "scrap_edf.py",
         ROOT / "backend" / "Scrapers" / "scrap_ted.py",
     ]
-    for path in ssl_files:
+    for path in ssl_callers:
         text = path.read_text(encoding="utf-8")
-        if "truststore.inject_into_ssl()" not in text:
-            raise RuntimeError(f"Injection SSL truststore absente: {path.relative_to(ROOT)}")
+        if "inject_truststore_once" not in text:
+            raise RuntimeError(f"Initialisation SSL centralisee absente: {path.relative_to(ROOT)}")
+
+    tls_config = (ROOT / "backend" / "tls_config.py").read_text(encoding="utf-8")
+    if "truststore.inject_into_ssl()" not in tls_config:
+        raise RuntimeError("Injection SSL truststore absente: backend/tls_config.py")
 
 
 def main() -> int:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import closing
@@ -167,6 +168,13 @@ def initialize_database() -> None:
             active=1,
             conn=conn,
         )
+        ensure_source(
+            "edf",
+            label="EDF - Portail fournisseurs",
+            base_url="https://pha2.edf.com/page.aspx/fr/rfp/request_browse_public",
+            active=1,
+            conn=conn,
+        )
 
 
 def init_db() -> None:
@@ -241,6 +249,39 @@ def update_recherche_job(
     values.append(search_id)
     with closing(get_conn()) as conn, conn:
         conn.execute(f"UPDATE recherches_jobs SET {', '.join(sets)} WHERE id = ?", values)
+
+
+def append_recherche_job_warning(search_id: int, warning: Dict[str, Any]) -> None:
+    """Ajoute une alerte sans écraser celles déjà produites par les autres sources."""
+    if not isinstance(warning, dict) or not warning:
+        raise ValueError("Une alerte non vide au format dictionnaire est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        row = conn.execute(
+            "SELECT warnings_json FROM recherches_jobs WHERE id = ? LIMIT 1",
+            (search_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Recherche introuvable: {search_id}")
+
+        existing: list[Dict[str, Any]] = []
+        raw = (row["warnings_json"] or "").strip()
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except (TypeError, ValueError):
+                parsed = None
+
+            if isinstance(parsed, dict):
+                existing.append(parsed)
+            elif isinstance(parsed, list):
+                existing.extend(item for item in parsed if isinstance(item, dict))
+
+        existing.append(warning)
+        conn.execute(
+            "UPDATE recherches_jobs SET warnings_json = ? WHERE id = ?",
+            (json.dumps(existing, ensure_ascii=False), search_id),
+        )
 
 
 def count_recherche_jobs() -> int:

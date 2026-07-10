@@ -242,26 +242,25 @@ def _job_is_active(job: Dict[str, Any]) -> bool:
     return _status_key(job.get("statut")) in ACTIVE_JOB_STATUSES
 
 
-def _job_has_warning(job: Dict[str, Any] | None) -> bool:
+def _job_warnings(job: Dict[str, Any] | None) -> List[Dict[str, Any]]:
     if not job:
-        return False
+        return []
     warning_blob = (job.get("warnings_json") or "").strip()
     if not warning_blob:
-        return False
+        return []
     try:
         parsed = json.loads(warning_blob)
     except Exception:
-        return True
+        return [{"severity": "warning", "message": warning_blob}]
     if isinstance(parsed, dict):
-        limited = parsed.get("limited_searches")
-        if isinstance(limited, list) and limited:
-            return True
-        if parsed.get("severity") in {"warning", "error"}:
-            return True
-        return bool(parsed.get("error"))
+        return [parsed]
     if isinstance(parsed, list):
-        return any(bool(item) for item in parsed)
-    return bool(parsed)
+        return [item for item in parsed if isinstance(item, dict) and item]
+    return []
+
+
+def _job_has_warning(job: Dict[str, Any] | None) -> bool:
+    return bool(_job_warnings(job))
 
 
 def _render_status_badges(job_or_status: Any) -> None:
@@ -280,6 +279,7 @@ def _render_status_badges(job_or_status: Any) -> None:
 def _source_label(source: Any) -> str:
     labels = {
         "boamp": "BOAMP",
+        "edf": "EDF - Portail fournisseurs",
         "ted": "TED / JOUE",
         "francemarches": "France Marchés",
     }
@@ -293,6 +293,47 @@ def _source_summary(options: Sequence[Dict[str, str]]) -> str:
     if not options:
         return "Aucune source active"
     return " + ".join(option.get("label") or option.get("code", "") for option in options)
+
+
+def _render_job_warnings(job: Dict[str, Any]) -> bool:
+    """Affiche toutes les alertes d'une recherche, y compris les erreurs de source partielles."""
+    warnings = _job_warnings(job)
+    if not warnings:
+        return False
+
+    for warning in warnings:
+        severity = str(warning.get("severity") or "warning").lower()
+        is_error = severity == "error"
+        panel_classes = (
+            "argos-panel bg-red-50 border border-red-200"
+            if is_error
+            else "argos-panel bg-yellow-50 border border-yellow-200"
+        )
+        text_classes = "text-red-900" if is_error else "text-yellow-900"
+        icon_classes = "text-red-700" if is_error else "text-yellow-700"
+        source = _source_label(warning.get("source")) if warning.get("source") else ""
+        title = f"Source indisponible · {source}" if is_error and source else (
+            "Source indisponible" if is_error else "Vérification recommandée"
+        )
+        message = str(warning.get("message") or "Une anomalie a été signalée pendant la recherche.").strip()
+        limited_searches = warning.get("limited_searches")
+
+        with ui.element("div").classes(panel_classes):
+            with ui.column().classes("w-full argos-panel-body gap-2"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("error" if is_error else "warning").classes(icon_classes)
+                    ui.label(title).classes(f"{text_classes} font-semibold")
+                ui.label(message).classes(f"{text_classes} text-sm")
+                if isinstance(limited_searches, list):
+                    with ui.column().classes("gap-1 mt-1"):
+                        for info in limited_searches:
+                            if not isinstance(info, dict):
+                                continue
+                            recherche = (info.get("recherche") or "").strip() or ", ".join(info.get("mots", []))
+                            nb_lues = info.get("nb_offres_listees") or info.get("nb_offres_lues") or info.get("nb_inserts") or "?"
+                            ui.label(f"{recherche} · {nb_lues} avis lus").classes(f"{text_classes} text-sm")
+        ui.space().classes("h-3")
+    return True
 
 
 def _parse_job_params(params: Any) -> Dict[str, Any]:
@@ -554,36 +595,8 @@ def render_recherche_detail_panel(
                 f"{_chip(job.get('nb_trouves'), '0')} trouvés · {_chip(job.get('nb_insere'), '0')} insérés"
             ).classes("argos-muted text-sm")
 
-    if not show_non_pertinent and _job_has_warning(job):
-        warning_blob = (job.get("warnings_json") or "").strip()
-        limited_searches: List[Dict[str, Any]] = []
-        warning_message = (
-            "Certaines recherches sont trop larges. Tous les avis disponibles ne sont peut-être pas affichés."
-        )
-        if warning_blob:
-            try:
-                parsed_warning = json.loads(warning_blob)
-                if isinstance(parsed_warning, dict):
-                    warning_message = (parsed_warning.get("message") or warning_message).strip()
-                    if isinstance(parsed_warning.get("limited_searches"), list):
-                        limited_searches = [
-                            item for item in parsed_warning["limited_searches"] if isinstance(item, dict)
-                        ]
-            except Exception:
-                limited_searches = []
-
-        with ui.element("div").classes("argos-panel bg-yellow-50 border border-yellow-200"):
-            with ui.column().classes("w-full argos-panel-body gap-2"):
-                with ui.row().classes("items-center gap-2"):
-                    ui.icon("warning").classes("text-yellow-700")
-                    ui.label("Vérification recommandée").classes("text-yellow-900 font-semibold")
-                ui.label(warning_message).classes("text-yellow-900 text-sm")
-                if limited_searches:
-                    with ui.column().classes("gap-1 mt-1"):
-                        for info in limited_searches:
-                            recherche = (info.get("recherche") or "").strip() or ", ".join(info.get("mots", []))
-                            nb_listees = info.get("nb_offres_listees") or info.get("nb_offres_lues") or info.get("nb_inserts") or "?"
-                            ui.label(f"{recherche} · {nb_listees} avis lus").classes("text-yellow-900 text-sm")
+    if not show_non_pertinent:
+        _render_job_warnings(job)
 
     with ui.element("div").classes("argos-panel"):
         with ui.row().classes("w-full argos-panel-header items-center justify-between"):
@@ -1480,36 +1493,7 @@ def _render_recherche_page(recherche_id: str, *, show_non_pertinent: bool) -> No
         ui.space().classes("h-4")
 
         if not show_non_pertinent:
-            warning_blob = (job.get("warnings_json") or "").strip()
-            limited_searches: List[Dict[str, Any]] = []
-            warning_message = (
-                "Certaines recherches sont trop larges. Tous les avis disponibles ne sont peut-être pas affichés."
-            )
-            if warning_blob:
-                try:
-                    parsed_warning = json.loads(warning_blob)
-                    warning_message = (parsed_warning.get("message") or warning_message).strip()
-                    if isinstance(parsed_warning.get("limited_searches"), list):
-                        limited_searches = [
-                            item for item in parsed_warning["limited_searches"] if isinstance(item, dict)
-                        ]
-                except Exception:
-                    limited_searches = []
-
-            if limited_searches:
-                with ui.element("div").classes("argos-panel bg-yellow-50 border border-yellow-200"):
-                    with ui.column().classes("w-full argos-panel-body gap-2"):
-                        with ui.row().classes("items-center gap-2"):
-                            ui.icon("warning").classes("text-yellow-700")
-                            ui.label("Vérification recommandée").classes("text-yellow-900 font-semibold")
-                        ui.label(warning_message).classes("text-yellow-900 text-sm")
-                        with ui.column().classes("gap-1 mt-1"):
-                            for info in limited_searches:
-                                recherche = (info.get("recherche") or "").strip() or ", ".join(info.get("mots", []))
-                                nb_listees = info.get("nb_offres_listees") or info.get("nb_offres_lues") or info.get("nb_inserts") or "?"
-                                ui.label(f"{recherche} · {nb_listees} avis lus").classes("text-yellow-900 text-sm")
-
-                ui.space().classes("h-4")
+            _render_job_warnings(job)
 
         with ui.element("div").classes("argos-panel"):
             with ui.row().classes("w-full argos-panel-header items-center justify-between"):
