@@ -20,7 +20,7 @@ from contextlib import closing
 from datetime import date, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from nicegui import ui
+from nicegui import app, ui
 
 from db import repository as db_repository
 from pipeline import (
@@ -35,6 +35,8 @@ from version import APP_DISPLAY_NAME, APP_VERSION
 
 HISTORY_PAGE_SIZE = 20
 ACTIVE_JOB_STATUSES = {"en_cours", "generation_mots_cle", "scraping", "tri_ia"}
+SESSION_DATE_PUB_MIN_KEY = "search_date_pub_min"
+SESSION_DATE_PUB_MAX_KEY = "search_date_pub_max"
 
 PALETTE = {
     "ink": "#182230",
@@ -48,6 +50,13 @@ PALETTE = {
     "green": "#16A34A",
     "red": "#DC2626",
 }
+
+
+def _normalized_iso_date(value: Any, fallback: date) -> str:
+    try:
+        return date.fromisoformat(str(value)).isoformat()
+    except (TypeError, ValueError):
+        return fallback.isoformat()
 
 
 def _score_style(score: Any) -> str:
@@ -939,9 +948,11 @@ class KeywordsWizard:
 
 
 @ui.page("/")
-def page_home() -> None:
+async def page_home() -> None:
     db_repository.initialize_database()
     ui.page_title(f"{APP_DISPLAY_NAME} · Recherches")
+    await ui.context.client.connected()
+    tab_storage = app.storage.tab
 
     source_options = get_available_scrapers()
     history_page = 1
@@ -970,8 +981,15 @@ def page_home() -> None:
 
                     with ui.column().classes("w-full argos-panel-body gap-4"):
                         today = date.today()
-                        default_pub_min = today - timedelta(days=7)
-                        default_pub_max = today
+                        last_week_pub_min = today - timedelta(days=7)
+                        initial_pub_min = _normalized_iso_date(
+                            tab_storage.get(SESSION_DATE_PUB_MIN_KEY),
+                            last_week_pub_min,
+                        )
+                        initial_pub_max = _normalized_iso_date(
+                            tab_storage.get(SESSION_DATE_PUB_MAX_KEY),
+                            today,
+                        )
 
                         prompt_input = (
                             ui.input(
@@ -986,12 +1004,12 @@ def page_home() -> None:
                             with ui.row().classes("items-end gap-3"):
                                 pub_min_input = ui.input(
                                     label="Publication min",
-                                    value=default_pub_min.isoformat(),
+                                    value=initial_pub_min,
                                 ).props("outlined readonly dense").classes("w-44")
 
                                 pub_min_menu = ui.menu().props("no-parent-event")
                                 with pub_min_menu:
-                                    pub_min_picker = ui.date(value=default_pub_min.isoformat()).props('first-day-of-week="1"')
+                                    pub_min_picker = ui.date(value=initial_pub_min).props('first-day-of-week="1"')
                                     pub_min_picker.on("update:model-value", lambda e: pub_min_menu.close())
                                     pub_min_picker.bind_value(pub_min_input)
 
@@ -999,12 +1017,12 @@ def page_home() -> None:
 
                                 pub_max_input = ui.input(
                                     label="Publication max",
-                                    value=default_pub_max.isoformat(),
+                                    value=initial_pub_max,
                                 ).props("outlined readonly dense").classes("w-44")
 
                                 pub_max_menu = ui.menu().props("no-parent-event")
                                 with pub_max_menu:
-                                    pub_max_picker = ui.date(value=default_pub_max.isoformat()).props('first-day-of-week="1"')
+                                    pub_max_picker = ui.date(value=initial_pub_max).props('first-day-of-week="1"')
                                     pub_max_picker.on("update:model-value", lambda e: pub_max_menu.close())
                                     pub_max_picker.bind_value(pub_max_input)
 
@@ -1013,8 +1031,8 @@ def page_home() -> None:
                                 ui.button(
                                     "7 derniers jours",
                                     on_click=lambda: (
-                                        pub_min_input.set_value(default_pub_min.isoformat()),
-                                        pub_max_input.set_value(default_pub_max.isoformat()),
+                                        pub_min_input.set_value(last_week_pub_min.isoformat()),
+                                        pub_max_input.set_value(today.isoformat()),
                                     ),
                                 ).props("flat dense").classes("text-xs")
 
@@ -1236,6 +1254,9 @@ def page_home() -> None:
         except Exception as e:
             ui.notify(f"Erreur création job: {e}", type="negative")
             return
+
+        tab_storage[SESSION_DATE_PUB_MIN_KEY] = date_pub_min
+        tab_storage[SESSION_DATE_PUB_MAX_KEY] = date_pub_max
 
         # Wizard overlay
         wiz = KeywordsWizard(
