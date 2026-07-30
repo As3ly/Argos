@@ -11,3 +11,4 @@ index-url = "https://nexus.framatome.corp/repository/py-pypi/simple"
 index-strategy = "first-index"
 http-proxy = "http://163.116.128.80:8080"
 https-proxy = "http://163.116.128.80:8080"
+no-proxy = ["nexus.framatome.corp"]

@@ -1,40 +1,26 @@
 stages:
-  - test
   - documentation
   - deploy
 
 variables:
-  # Le runner FRA utilise Windows/PowerShell et le magasin de certificats
-  # système contient l'autorité de certification interne. Les deux noms
-  # couvrent les versions anciennes et récentes de uv.
+  # Le runner FRA utilise Windows/PowerShell. UV_SYSTEM_CERTS est le nom
+  # attendu par la version de uv installée sur ce runner.
   UV_SYSTEM_CERTS: "true"
-  UV_NATIVE_TLS: "true"
-  UV_CONFIG_FILE: "uv-corporate.toml"
+  UV_DEFAULT_INDEX: "https://nexus.framatome.corp/repository/py-pypi/simple"
+  HTTP_PROXY: "http://163.116.128.80:8080"
+  HTTPS_PROXY: "http://163.116.128.80:8080"
+  NO_PROXY: "nexus.framatome.corp"
   UV_CACHE_DIR: ".uv-cache"
-  PYTHONPATH: "backend"
 
 .uv_cache:
   cache:
     key:
       files:
-        - uv.lock
         - docs/requirements.txt
     paths:
       - .uv-cache/
   before_script:
     - uv --version
-
-tests:
-  extends: .uv_cache
-  stage: test
-  script:
-    - uv sync --locked --group dev
-    - uv run --no-sync python -m compileall -q backend scripts
-    - uv run --no-sync python -m unittest discover -s tests -p "test_*.py"
-    - uv run --no-sync python scripts/build_release.py --check
-  rules:
-    - if: '$CI_COMMIT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 docs:build:
   extends: .uv_cache

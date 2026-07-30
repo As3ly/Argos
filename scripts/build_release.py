@@ -73,7 +73,12 @@ def assert_corporate_constraints() -> None:
         )
 
     corporate_uv_config = CORPORATE_UV_CONFIG_FILE.read_text(encoding="utf-8")
-    for expected in (NEXUS_INDEX_URL, "native-tls = true", FRA_PROXY_URL):
+    for expected in (
+        NEXUS_INDEX_URL,
+        "native-tls = true",
+        FRA_PROXY_URL,
+        'no-proxy = ["nexus.framatome.corp"]',
+    ):
         if expected not in corporate_uv_config:
             raise RuntimeError(f"Contrainte corporate manquante dans uv-corporate.toml: {expected}")
 

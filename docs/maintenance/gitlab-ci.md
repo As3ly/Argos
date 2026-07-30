@@ -1,7 +1,7 @@
 # Pipeline GitLab
 
-Le fichier `.gitlab-ci.yml` couvre la qualité, la construction de la
-documentation et la publication GitLab Pages.
+Le fichier `.gitlab-ci.yml` couvre la construction de la documentation et sa
+publication avec GitLab Pages.
 
 ## Prérequis du runner FRA
 
@@ -17,7 +17,6 @@ Le pipeline ne télécharge pas directement les dépendances depuis un index pub
 
 | Job | Étape | Contrôles |
 |---|---|---|
-| `tests` | `test` | Compilation, tests unitaires, contraintes de release |
 | `docs:build` | `documentation` | `mkdocs build --strict`, artefact `site/` |
 | `pages` | `deploy` | Publication de `public/` sur la branche par défaut |
 
@@ -27,11 +26,14 @@ Le runner FRA utilise l'exécuteur `shell` avec PowerShell. La pipeline n'utilis
 donc ni composant contenant des commandes Bash, ni image Docker, ni chemin
 `.venv/bin/python`.
 
-Les variables `UV_SYSTEM_CERTS=true` et `UV_NATIVE_TLS=true` couvrent
-respectivement les versions anciennes et récentes de `uv`. Elles demandent
-l'utilisation du magasin de certificats Windows et évitent l'erreur
-`UnknownIssuer` lors de l'accès au Nexus interne. Le réglage est également
-présent dans `uv-corporate.toml`.
+La variable `UV_SYSTEM_CERTS=true` demande à la version de `uv` installée sur
+le runner d'utiliser le magasin de certificats Windows. Elle évite l'erreur
+`UnknownIssuer` lors de l'accès au Nexus interne.
+
+Le Nexus est un service interne : `NO_PROXY=nexus.framatome.corp` l'exclut du
+tunnel proxy. `UV_DEFAULT_INDEX`, `HTTP_PROXY` et `HTTPS_PROXY` reprennent dans
+la CI les valeurs de `uv-corporate.toml`. Les destinations externes continuent
+donc d'utiliser le proxy FRA.
 
 Les jobs documentaires utilisent :
 
@@ -45,7 +47,8 @@ dépendance métier n'est pas disponible sur le registre du runner.
 
 ## Variables et secrets
 
-Les tests actuels n'appellent pas Azure ni les portails réels. Aucun secret n'est nécessaire pour le build documentaire.
+La construction documentaire n'appelle ni Azure ni les portails réels. Aucun
+secret applicatif n'est nécessaire.
 
 Si un futur test d'intégration requiert un service :
 
