@@ -1,50 +1,15 @@
 stages:
-  - documentation
   - deploy
 
 variables:
-  # Le runner FRA utilise Windows/PowerShell. UV_SYSTEM_CERTS est le nom
-  # attendu par la version de uv installée sur ce runner.
   UV_SYSTEM_CERTS: "true"
-  UV_DEFAULT_INDEX: "https://nexus.framatome.corp/repository/py-pypi/simple"
-  HTTP_PROXY: "http://163.116.128.80:8080"
-  HTTPS_PROXY: "http://163.116.128.80:8080"
-  NO_PROXY: "nexus.framatome.corp"
-  UV_CACHE_DIR: ".uv-cache"
 
-.uv_cache:
-  cache:
-    key:
-      files:
-        - docs/requirements.txt
-    paths:
-      - .uv-cache/
-  before_script:
-    - uv --version
-
-docs:build:
-  extends: .uv_cache
-  stage: documentation
-  script:
-    # --no-project évite de résoudre les dépendances de l'application.
-    - uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict --site-dir site
-  artifacts:
-    expire_in: 7 days
-    paths:
-      - site/
-  rules:
-    - if: '$CI_COMMIT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-
-# Le nom historique `pages` et l'artefact `public/` sont compatibles avec
-# GitLab 16.9, utilisé par le runner FRA.
 pages:
-  extends: .uv_cache
   stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict --site-dir public
   artifacts:
     paths:
-      - public/
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      - public

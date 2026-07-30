@@ -5,22 +5,7 @@ Argos est un outil de veille d'appels d'offres techniques. Il transforme un beso
 ## Documentation
 
 La documentation complète est publiée à l'adresse
-[https://gitlab.framatome.io/elyas-automatisation/argos/](https://gitlab.framatome.io/elyas-automatisation/argos/)
-et se construit avec MkDocs Material.
-
-```bash
-uv --config-file uv-corporate.toml run --no-project \
-  --with-requirements docs/requirements.txt \
-  mkdocs serve
-```
-
-Contrôle utilisé par la CI :
-
-```bash
-uv --config-file uv-corporate.toml run --no-project \
-  --with-requirements docs/requirements.txt \
-  mkdocs build --strict
-```
+[https://gitlab.framatome.io/elyas-automatisation/argos/](https://gitlab.framatome.io/elyas-automatisation/argos/).
 
 Les parcours principaux sont :
 
