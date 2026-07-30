@@ -3,43 +3,45 @@ stages:
   - documentation
   - deploy
 
-include:
-  - template: Security/SAST.gitlab-ci.yml
-
 variables:
-  UV_CONFIG_FILE: uv-corporate.toml
-  UV_CACHE_DIR: .uv-cache
+  # Le runner FRA utilise Windows/PowerShell et le magasin de certificats
+  # système contient l'autorité de certification interne. Les deux noms
+  # couvrent les versions anciennes et récentes de uv.
+  UV_SYSTEM_CERTS: "true"
+  UV_NATIVE_TLS: "true"
+  UV_CONFIG_FILE: "uv-corporate.toml"
+  UV_CACHE_DIR: ".uv-cache"
+  PYTHONPATH: "backend"
 
-.uv_job:
+.uv_cache:
   cache:
     key:
       files:
         - uv.lock
+        - docs/requirements.txt
     paths:
       - .uv-cache/
   before_script:
     - uv --version
-    - uv --config-file "$UV_CONFIG_FILE" sync --locked --group dev
 
 tests:
-  extends: .uv_job
+  extends: .uv_cache
   stage: test
   script:
-    - uv --config-file "$UV_CONFIG_FILE" run --no-sync python -m compileall -q backend scripts
-    - PYTHONPATH=backend uv --config-file "$UV_CONFIG_FILE" run --no-sync python -m unittest discover -s tests -p "test_*.py"
-    - uv --config-file "$UV_CONFIG_FILE" run --no-sync python scripts/build_release.py --check
+    - uv sync --locked --group dev
+    - uv run --no-sync python -m compileall -q backend scripts
+    - uv run --no-sync python -m unittest discover -s tests -p "test_*.py"
+    - uv run --no-sync python scripts/build_release.py --check
   rules:
     - if: '$CI_COMMIT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
 docs:build:
-  extends: .uv_job
+  extends: .uv_cache
   stage: documentation
-  before_script:
-    - !reference [.uv_job, before_script]
-    - uv --config-file "$UV_CONFIG_FILE" pip install --python .venv/bin/python --requirement docs/requirements.txt
   script:
-    - uv --config-file "$UV_CONFIG_FILE" run --no-sync mkdocs build --strict
+    # --no-project évite de résoudre les dépendances de l'application.
+    - uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict --site-dir site
   artifacts:
     expire_in: 7 days
     paths:
@@ -48,14 +50,13 @@ docs:build:
     - if: '$CI_COMMIT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
+# Le nom historique `pages` et l'artefact `public/` sont compatibles avec
+# GitLab 16.9, utilisé par le runner FRA.
 pages:
-  extends: .uv_job
+  extends: .uv_cache
   stage: deploy
-  before_script:
-    - !reference [.uv_job, before_script]
-    - uv --config-file "$UV_CONFIG_FILE" pip install --python .venv/bin/python --requirement docs/requirements.txt
   script:
-    - uv --config-file "$UV_CONFIG_FILE" run --no-sync mkdocs build --strict --site-dir public
+    - uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict --site-dir public
   artifacts:
     paths:
       - public/

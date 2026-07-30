@@ -4,32 +4,35 @@ Argos est un outil de veille d'appels d'offres techniques. Il transforme un beso
 
 ## Documentation
 
-La documentation complète est disponible dans [`docs/`](docs/index.md) et se construit avec MkDocs Material.
+La documentation complète est publiée à l'adresse
+[https://gitlab.framatome.io/elyas-automatisation/argos/](https://gitlab.framatome.io/elyas-automatisation/argos/)
+et se construit avec MkDocs Material.
 
 ```bash
-uv --config-file uv-corporate.toml sync --locked
-uv --config-file uv-corporate.toml pip install \
-  --python .venv/bin/python --requirement docs/requirements.txt
-uv run --no-sync mkdocs serve
+uv --config-file uv-corporate.toml run --no-project \
+  --with-requirements docs/requirements.txt \
+  mkdocs serve
 ```
 
 Contrôle utilisé par la CI :
 
 ```bash
-uv run --no-sync mkdocs build --strict
+uv --config-file uv-corporate.toml run --no-project \
+  --with-requirements docs/requirements.txt \
+  mkdocs build --strict
 ```
 
 Les parcours principaux sont :
 
-- [installation](docs/getting-started/installation.md) ;
-- [première recherche](docs/getting-started/first-search.md) ;
-- [architecture](docs/architecture/overview.md) ;
-- [maintenance](docs/maintenance/schedule.md) ;
-- [base SQLite](docs/database/schema.md) ;
-- [release Windows](docs/maintenance/release-windows.md).
+- [installation](https://gitlab.framatome.io/elyas-automatisation/argos/getting-started/installation/) ;
+- [première recherche](https://gitlab.framatome.io/elyas-automatisation/argos/getting-started/first-search/) ;
+- [architecture](https://gitlab.framatome.io/elyas-automatisation/argos/architecture/overview/) ;
+- [maintenance](https://gitlab.framatome.io/elyas-automatisation/argos/maintenance/schedule/) ;
+- [base SQLite](https://gitlab.framatome.io/elyas-automatisation/argos/database/schema/) ;
+- [release Windows](https://gitlab.framatome.io/elyas-automatisation/argos/maintenance/release-windows/).
 
 Le guide utilisateur illustré est également disponible dans
-[`output/pdf/Guide_Argos_installation_utilisation_v1.2.pdf`](output/pdf/Guide_Argos_installation_utilisation_v1.2.pdf).
+[le dépôt GitLab FRA](https://gitlab.framatome.io/elyas-automatisation/argos/-/blob/main/output/pdf/Guide_Argos_installation_utilisation_v1.2.pdf).
 
 ## Démarrage rapide
 
@@ -51,6 +54,7 @@ L'interface est ensuite accessible sur l'adresse indiquée dans la console, par 
 uv run python -m compileall -q backend scripts
 PYTHONPATH=backend uv run python -m unittest discover -s tests -p "test_*.py"
 uv run --group dev python scripts/build_release.py --check
-uv --config-file uv-corporate.toml pip install --python .venv/bin/python --requirement docs/requirements.txt
-uv run --no-sync mkdocs build --strict
+uv --config-file uv-corporate.toml run --no-project \
+  --with-requirements docs/requirements.txt \
+  mkdocs build --strict
 ```

@@ -1,6 +1,7 @@
 # Pipeline GitLab
 
-Le fichier `.gitlab-ci.yml` couvre la qualité, la documentation, le SAST et la publication GitLab Pages.
+Le fichier `.gitlab-ci.yml` couvre la qualité, la construction de la
+documentation et la publication GitLab Pages.
 
 ## Prérequis du runner FRA
 
@@ -8,7 +9,7 @@ Le fichier `.gitlab-ci.yml` couvre la qualité, la documentation, le SAST et la 
 - `uv` installé ;
 - Python 3.13 disponible ;
 - accès au Nexus et au proxy configurés dans `uv-corporate.toml` ;
-- capacité à utiliser les modèles de sécurité GitLab internes.
+- magasin de certificats Windows contenant l'autorité interne FRA.
 
 Le pipeline ne télécharge pas directement les dépendances depuis un index public.
 
@@ -17,9 +18,30 @@ Le pipeline ne télécharge pas directement les dépendances depuis un index pub
 | Job | Étape | Contrôles |
 |---|---|---|
 | `tests` | `test` | Compilation, tests unitaires, contraintes de release |
-| `sast` | `test` | Analyse statique via le modèle GitLab |
 | `docs:build` | `documentation` | `mkdocs build --strict`, artefact `site/` |
 | `pages` | `deploy` | Publication de `public/` sur la branche par défaut |
+
+## Compatibilité avec le runner Windows
+
+Le runner FRA utilise l'exécuteur `shell` avec PowerShell. La pipeline n'utilise
+donc ni composant contenant des commandes Bash, ni image Docker, ni chemin
+`.venv/bin/python`.
+
+Les variables `UV_SYSTEM_CERTS=true` et `UV_NATIVE_TLS=true` couvrent
+respectivement les versions anciennes et récentes de `uv`. Elles demandent
+l'utilisation du magasin de certificats Windows et évitent l'erreur
+`UnknownIssuer` lors de l'accès au Nexus interne. Le réglage est également
+présent dans `uv-corporate.toml`.
+
+Les jobs documentaires utilisent :
+
+```powershell
+uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict
+```
+
+`--no-project` est important : MkDocs n'a pas besoin des dépendances de
+l'application. La documentation reste donc constructible même si une
+dépendance métier n'est pas disponible sur le registre du runner.
 
 ## Variables et secrets
 
@@ -36,12 +58,12 @@ Si un futur test d'intégration requiert un service :
 
 ```bash
 uv --config-file uv-corporate.toml sync --locked --group dev
-uv --config-file uv-corporate.toml pip install \
-  --python .venv/bin/python --requirement docs/requirements.txt
 uv run python -m compileall -q backend scripts
 PYTHONPATH=backend uv run python -m unittest discover -s tests -p "test_*.py"
 uv run --group dev python scripts/build_release.py --check
-uv run --no-sync mkdocs build --strict
+uv --config-file uv-corporate.toml run --no-project \
+  --with-requirements docs/requirements.txt \
+  mkdocs build --strict
 ```
 
 ## Échec du build documentaire

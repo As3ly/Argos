@@ -1,6 +1,7 @@
 site_name: Argos - Veille des appels d'offres
 site_description: Documentation utilisateur, technique et guide de maintenance du projet Argos
 site_author: Équipe Argos
+site_url: https://gitlab.framatome.io/elyas-automatisation/argos/
 docs_dir: docs
 site_dir: site
 
