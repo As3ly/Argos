@@ -1,0 +1,43 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / local config
+.env
+.env.*
+!.env.example
+.envrc
+
+# IDE / editor
+.vscode/
+.DS_Store
+
+# Local runtime data
+*.log
+backend/html_scrap.db
+backend/*.sqlite3
+backend/*.db
+html_scrap.db
+debug_*.html
+
+# Build/package artifacts
+build/
+dist/
+release/
+site/
+public/
+.uv-cache/
+
+# Browser test artifacts
+.playwright-mcp/
+output/playwright/
+tmp/

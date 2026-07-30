@@ -1,0 +1,594 @@
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+from typing import Any, Dict, Iterable, Optional, Sequence
+
+from .migrations import apply_migrations
+from .schema import create_base_schema
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BASE_DIR = PROJECT_ROOT / "backend"
+DB_PATH = Path(os.getenv("ARGOS_DB_PATH", str(PROJECT_ROOT / "html_scrap.db"))).resolve()
+
+
+def get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+
+
+_RECHERCHE_JOB_ORDER_BY = {
+    "date_lancement DESC",
+    "date_lancement ASC",
+    "id DESC",
+    "id ASC",
+}
+
+_APPEL_OFFRE_ORDER_BY = {
+    "date_ajout DESC",
+    "date_ajout ASC",
+    "score_ia DESC",
+    "score_ia ASC",
+    "score_ia DESC, date_ajout DESC",
+    "score_ia ASC, date_ajout DESC",
+}
+
+
+def _sanitize_order_by(order_by: str, allowed: set[str], default: str) -> str:
+    """Retourne une clause ORDER BY sûre parmi une liste blanche stricte."""
+    normalized = " ".join((order_by or default).strip().split())
+    normalized = normalized.replace(" ,", ",").replace(", ", ", ")
+    if normalized not in allowed:
+        return default
+    return normalized
+
+
+def _pertinent_to_db(pertinent: Optional[bool]) -> Optional[int]:
+    if pertinent is None:
+        return None
+    return 1 if bool(pertinent) else 0
+
+
+def _increment_job_counts(
+    conn: sqlite3.Connection,
+    search_id: int,
+    *,
+    nb_trouves_delta: int = 0,
+    nb_insere_delta: int = 0,
+) -> None:
+    conn.execute(
+        """
+        UPDATE recherches_jobs
+        SET
+            nb_trouves = COALESCE(nb_trouves, 0) + ?,
+            nb_insere = COALESCE(nb_insere, 0) + ?
+        WHERE id = ?
+        """,
+        (nb_trouves_delta, nb_insere_delta, search_id),
+    )
+
+
+def increment_recherche_job_counts(
+    search_id: int,
+    *,
+    nb_trouves_delta: int = 0,
+    nb_insere_delta: int = 0,
+) -> None:
+    if nb_trouves_delta == 0 and nb_insere_delta == 0:
+        return
+    with closing(get_conn()) as conn, conn:
+        _increment_job_counts(
+            conn,
+            search_id,
+            nb_trouves_delta=nb_trouves_delta,
+            nb_insere_delta=nb_insere_delta,
+        )
+
+
+def get_source_id_by_code(code: str, *, conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
+    if not code or not code.strip():
+        return None
+    code = code.strip().lower()
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_conn()
+    try:
+        row = conn.execute("SELECT id FROM sources WHERE code = ? LIMIT 1", (code,)).fetchone()
+        return int(row["id"] if isinstance(row, sqlite3.Row) else row[0]) if row else None
+    finally:
+        if owns_conn and conn is not None:
+            conn.close()
+
+
+def ensure_source(
+    code: str,
+    *,
+    label: Optional[str] = None,
+    base_url: Optional[str] = None,
+    active: int = 1,
+    conn: Optional[sqlite3.Connection] = None,
+) -> int:
+    if not code or not code.strip():
+        raise ValueError("Le champ 'code' est obligatoire pour la table sources.")
+    code = code.strip().lower()
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_conn()
+    try:
+        conn.execute(
+            """
+            INSERT INTO sources(code, label, base_url, active)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(code) DO UPDATE SET
+                label = COALESCE(excluded.label, sources.label),
+                base_url = COALESCE(excluded.base_url, sources.base_url),
+                active = excluded.active
+            """,
+            (code, label, base_url, active),
+        )
+        source_id = get_source_id_by_code(code, conn=conn)
+        if source_id is None:
+            raise RuntimeError(f"Impossible de récupérer l'id source pour code='{code}'.")
+        return source_id
+    finally:
+        if owns_conn and conn is not None:
+            conn.close()
+
+
+def initialize_database() -> None:
+    """Point d'entrée unique: schéma de base -> migrations -> seed minimal."""
+    with closing(get_conn()) as conn, conn:
+        create_base_schema(conn)
+        apply_migrations(conn)
+        ensure_source(
+            "francemarches",
+            label="France Marchés",
+            base_url="https://www.francemarches.com/",
+            active=0,
+            conn=conn,
+        )
+        ensure_source(
+            "boamp",
+            label="BOAMP",
+            base_url="https://www.boamp.fr/",
+            active=1,
+            conn=conn,
+        )
+        ensure_source(
+            "ted",
+            label="TED / JOUE",
+            base_url="https://ted.europa.eu/",
+            active=1,
+            conn=conn,
+        )
+        ensure_source(
+            "edf",
+            label="EDF - Portail fournisseurs",
+            base_url="https://pha2.edf.com/page.aspx/fr/rfp/request_browse_public",
+            active=1,
+            conn=conn,
+        )
+
+
+def init_db() -> None:
+    """Alias de compatibilité."""
+    initialize_database()
+
+
+def create_recherche_job(
+    *,
+    requete: str,
+    prompt_initial: Optional[str] = None,
+    source: Optional[str] = None,
+    titre: Optional[str] = None,
+    params: Optional[str] = None,
+    statut: Optional[str] = None,
+    nb_trouves: Optional[int] = None,
+    nb_insere: Optional[int] = None,
+) -> int:
+    if not requete:
+        raise ValueError("Le champ 'requete' est obligatoire.")
+    with closing(get_conn()) as conn, conn:
+        source_id = get_source_id_by_code(source, conn=conn) if source else None
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO recherches_jobs (requete, prompt_initial, source, source_id, params, statut, nb_trouves, nb_insere, titre, date_lancement)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (requete, prompt_initial, source, source_id, params, statut, nb_trouves, nb_insere, titre),
+        )
+        return cur.lastrowid
+
+
+def update_recherche_job(
+    search_id: int,
+    *,
+    statut: Optional[str] = None,
+    nb_trouves: Optional[int] = None,
+    nb_insere: Optional[int] = None,
+    titre: Optional[str] = None,
+    requete: Optional[str] = None,
+    prompt_initial: Optional[str] = None,
+    warnings_json: Optional[str] = None,
+) -> None:
+    sets = []
+    values = []
+    if statut is not None:
+        sets.append("statut = ?")
+        values.append(statut)
+    if nb_trouves is not None:
+        sets.append("nb_trouves = ?")
+        values.append(nb_trouves)
+    if nb_insere is not None:
+        sets.append("nb_insere = ?")
+        values.append(nb_insere)
+    if requete is not None:
+        sets.append("requete = ?")
+        values.append(requete)
+    if prompt_initial is not None:
+        sets.append("prompt_initial = ?")
+        values.append(prompt_initial)
+    if titre is not None:
+        sets.append("titre = ?")
+        values.append(titre)
+    if warnings_json is not None:
+        sets.append("warnings_json = ?")
+        values.append(warnings_json)
+
+    if not sets:
+        return
+
+    values.append(search_id)
+    with closing(get_conn()) as conn, conn:
+        conn.execute(f"UPDATE recherches_jobs SET {', '.join(sets)} WHERE id = ?", values)
+
+
+def append_recherche_job_warning(search_id: int, warning: Dict[str, Any]) -> None:
+    """Ajoute une alerte sans écraser celles déjà produites par les autres sources."""
+    if not isinstance(warning, dict) or not warning:
+        raise ValueError("Une alerte non vide au format dictionnaire est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        row = conn.execute(
+            "SELECT warnings_json FROM recherches_jobs WHERE id = ? LIMIT 1",
+            (search_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Recherche introuvable: {search_id}")
+
+        existing: list[Dict[str, Any]] = []
+        raw = (row["warnings_json"] or "").strip()
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except (TypeError, ValueError):
+                parsed = None
+
+            if isinstance(parsed, dict):
+                existing.append(parsed)
+            elif isinstance(parsed, list):
+                existing.extend(item for item in parsed if isinstance(item, dict))
+
+        existing.append(warning)
+        conn.execute(
+            "UPDATE recherches_jobs SET warnings_json = ? WHERE id = ?",
+            (json.dumps(existing, ensure_ascii=False), search_id),
+        )
+
+
+def count_recherche_jobs() -> int:
+    with closing(get_conn()) as conn:
+        row = conn.execute("SELECT COUNT(*) FROM recherches_jobs").fetchone()
+        return int(row[0])
+
+
+def list_recherche_jobs(
+    limit: int = 50,
+    order_by: str = "date_lancement DESC",
+    offset: int = 0,
+) -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(
+        order_by,
+        _RECHERCHE_JOB_ORDER_BY,
+        "date_lancement DESC",
+    )
+    with closing(get_conn()) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM recherches_jobs ORDER BY {safe_order_by} LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+        for row in rows:
+            yield dict(row)
+
+
+def delete_recherche_jobs(search_ids: Sequence[int]) -> int:
+    ids = sorted({int(search_id) for search_id in search_ids if int(search_id) > 0})
+    if not ids:
+        return 0
+
+    placeholders = ",".join("?" for _ in ids)
+    with closing(get_conn()) as conn, conn:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM recherches_jobs WHERE id IN ({placeholders})", ids)
+        return cur.rowcount
+
+
+def save_prompt(prompt: str) -> int:
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise ValueError("Le prompt est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        conn.execute(
+            """
+            INSERT INTO saved_prompts(prompt, created_at, updated_at)
+            VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(prompt) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+            """,
+            (prompt,),
+        )
+        row = conn.execute("SELECT id FROM saved_prompts WHERE prompt = ? LIMIT 1", (prompt,)).fetchone()
+        if row is None:
+            raise RuntimeError("Impossible de récupérer le prompt sauvegardé.")
+        return int(row["id"])
+
+
+def update_saved_prompt(prompt_id: int, prompt: str) -> None:
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise ValueError("Le prompt est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        cur = conn.execute(
+            """
+            UPDATE saved_prompts
+            SET prompt = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (prompt, int(prompt_id)),
+        )
+        if cur.rowcount == 0:
+            raise ValueError("Prompt sauvegardé introuvable.")
+
+
+def delete_saved_prompt(prompt_id: int) -> int:
+    with closing(get_conn()) as conn, conn:
+        cur = conn.execute("DELETE FROM saved_prompts WHERE id = ?", (int(prompt_id),))
+        return int(cur.rowcount)
+
+
+def list_saved_prompts(limit: int = 100) -> Iterable[Dict[str, Any]]:
+    with closing(get_conn()) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, prompt, created_at, updated_at
+            FROM saved_prompts
+            ORDER BY updated_at DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        for row in rows:
+            yield dict(row)
+
+
+# --- Fonctions historiques conservées telles quelles pour compatibilité ---
+def inserer_raw_recherche(*, search_id: int, source: str, mot_cle, html_contenu: str, lien: str):
+    if isinstance(mot_cle, list):
+        mot_cle = mot_cle[0] if mot_cle else ""
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("Le champ 'source' est obligatoire pour raw_recherches.")
+
+    with closing(get_conn()) as conn, conn:
+        cur = conn.cursor()
+        source_id = get_source_id_by_code(source, conn=conn)
+        cur.execute(
+            """
+            INSERT INTO raw_recherches (search_id, source, source_id, mot_cle, html_contenu, lien)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (search_id, source, source_id, mot_cle, html_contenu, lien),
+        )
+
+
+def raw_lien_existe(search_id: int, lien: str) -> bool:
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT 1 FROM raw_recherches WHERE search_id = ? AND lien = ? LIMIT 1",
+            (search_id, lien),
+        )
+        return cur.fetchone() is not None
+
+
+def safe_insert(extraction: dict, pertinent: bool, raw_id: int, lien: str, source: str, search_id: int):
+    if not isinstance(source, str) or not source.strip():
+        print(f"[RAW {raw_id}] ❌ Insertion refusée: source vide/invalide (source={source!r})")
+        return
+
+    if not isinstance(search_id, int) or search_id <= 0:
+        print(f"[RAW {raw_id}] ❌ Insertion refusée: search_id invalide (search_id={search_id!r})")
+        return
+
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO appels_offres (
+                titre, source, source_id, date_publication, date_cloture, lieu, budget,
+                type_marche, acheteur, reference, score_ia, pertinent, tags, raison,
+                secteur, mot_cle, lien, search_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                extraction["titre"],
+                source.strip(),
+                get_source_id_by_code(source, conn=conn),
+                extraction["date_publication"],
+                extraction["date_cloture"],
+                extraction["lieu"],
+                extraction["budget"],
+                extraction["type_marche"],
+                extraction["acheteur"],
+                extraction["reference"],
+                extraction["score_ia"],
+                _pertinent_to_db(pertinent),
+                extraction["tags"],
+                extraction["raison"],
+                extraction["secteur"],
+                extraction["mot_cle"],
+                lien,
+                search_id,
+            ),
+        )
+
+        if cur.rowcount == 0:
+            print(f"[RAW {raw_id}] ⚠ Doublon détecté → ignoré")
+            conn.commit()
+            return
+
+        _increment_job_counts(conn, search_id, nb_insere_delta=1)
+        conn.commit()
+        print(f"[RAW {raw_id}] ✔ INSERT OK (pertinent={pertinent})")
+
+    except Exception as e:
+        print(f"[RAW {raw_id}] ❌ Erreur INSERT : {e}")
+
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def safe_delete_raw(raw_id: int, search_id: int):
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=30.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+
+        cur = conn.cursor()
+        cur.execute("DELETE FROM raw_recherches WHERE id = ? AND search_id = ?", (raw_id, search_id))
+
+        conn.commit()
+        print(f"[RAW {raw_id}] ✔ RAW supprimé")
+
+    except Exception as e:
+        print(f"[RAW {raw_id}] ❌ Erreur suppression RAW : {e}")
+
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def add_appel_offre(
+    *,
+    search_id: int,
+    titre: Optional[str] = None,
+    source: Optional[str] = None,
+    date_publication: Optional[str] = None,
+    date_cloture: Optional[str] = None,
+    lieu: Optional[str] = None,
+    budget: Optional[str] = None,
+    type_marche: Optional[str] = None,
+    acheteur: Optional[str] = None,
+    reference: Optional[str] = None,
+    score_ia: Optional[float] = None,
+    pertinent: Optional[bool] = None,
+    tags: Optional[str] = None,
+    raison: Optional[str] = None,
+    secteur: Optional[str] = None,
+    mot_cle: Optional[str] = None,
+    lien: Optional[str] = None,
+) -> int:
+    if not lien:
+        raise ValueError("Le champ 'lien' est obligatoire (clé unique).")
+    if not search_id:
+        raise ValueError("Le champ 'search_id' est obligatoire.")
+
+    with closing(get_conn()) as conn, conn:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM recherches_jobs WHERE id = ? LIMIT 1", (search_id,))
+        if cur.fetchone() is None:
+            raise ValueError(f"search_id={search_id} introuvable dans 'recherches_jobs'.")
+
+        source_id = get_source_id_by_code(source, conn=conn) if source else None
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO appels_offres
+            (titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
+             acheteur, reference, score_ia, pertinent, tags, raison, secteur, mot_cle, lien, search_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                titre, source, source_id, date_publication, date_cloture, lieu, budget, type_marche,
+                acheteur, reference, score_ia,
+                _pertinent_to_db(pertinent if pertinent is not None else (score_ia > 0.45 if score_ia is not None else None)),
+                tags, raison, secteur, mot_cle, lien, search_id
+            )
+        )
+        if cur.rowcount > 0:
+            _increment_job_counts(conn, search_id, nb_insere_delta=1)
+        cur.execute("SELECT id FROM appels_offres WHERE lien = ? LIMIT 1", (lien,))
+        row = cur.fetchone()
+        return int(row["id"]) if row else -1
+
+
+def get_appel_offre_by_lien(lien: str) -> Optional[Dict[str, Any]]:
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM appels_offres WHERE lien = ? LIMIT 1", (lien,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def list_appels_offres_pert(*, search_id: Optional[int] = None, limit: int = 50, order_by: str = "date_ajout DESC") -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(order_by, _APPEL_OFFRE_ORDER_BY, "date_ajout DESC")
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        if search_id:
+            query = f"""
+                SELECT * FROM appels_offres
+                WHERE search_id = ? AND pertinent = 1
+                ORDER BY {safe_order_by}
+                LIMIT ?
+            """
+            cur.execute(query, (search_id, limit))
+        else:
+            query = f"SELECT * FROM appels_offres WHERE pertinent = 1 ORDER BY {safe_order_by} LIMIT ?"
+            cur.execute(query, (limit,))
+        for r in cur.fetchall():
+            yield dict(r)
+
+
+def list_appels_offres_non_pert(*, search_id: Optional[int] = None, limit: int = 50, order_by: str = "date_ajout DESC") -> Iterable[Dict[str, Any]]:
+    safe_order_by = _sanitize_order_by(order_by, _APPEL_OFFRE_ORDER_BY, "date_ajout DESC")
+    with closing(get_conn()) as conn:
+        cur = conn.cursor()
+        if search_id:
+            query = f"""
+                SELECT * FROM appels_offres
+                WHERE search_id = ? AND pertinent = 0
+                ORDER BY {safe_order_by}
+                LIMIT ?
+            """
+            cur.execute(query, (search_id, limit))
+        else:
+            query = f"SELECT * FROM appels_offres WHERE pertinent = 0 ORDER BY {safe_order_by} LIMIT ?"
+            cur.execute(query, (limit,))
+        for r in cur.fetchall():
+            yield dict(r)

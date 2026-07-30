@@ -1,0 +1,64 @@
+site_name: Argos - Veille des appels d'offres
+site_description: Documentation utilisateur, technique et guide de maintenance du projet Argos
+site_author: Équipe Argos
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Accueil: index.md
+  - Démarrage:
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - Première recherche: getting-started/first-search.md
+      - Exécuter Argos: getting-started/running.md
+  - Utilisation:
+      - Prompts sauvegardés: usage/saved-prompts.md
+      - Résultats et alertes: usage/results.md
+  - Architecture:
+      - Vue d'ensemble: architecture/overview.md
+      - Pipeline d'exécution: architecture/pipeline.md
+      - Structure du dépôt: architecture/repository.md
+      - Réseau et sources: architecture/network-and-sources.md
+  - Base de données SQLite:
+      - Schéma: database/schema.md
+      - Cycle de vie des données: database/lifecycle.md
+      - Sauvegarde et opérations: database/operations.md
+  - Maintenance:
+      - Politique et calendrier: maintenance/schedule.md
+      - Ajouter une source: maintenance/add-a-source.md
+      - Maintenir les scrapers: maintenance/scrapers.md
+      - Classification IA: maintenance/classification.md
+      - Release Windows: maintenance/release-windows.md
+      - Pipeline GitLab: maintenance/gitlab-ci.md
+      - Dépannage: maintenance/troubleshooting.md
+  - Référence:
+      - Variables d'environnement: reference/environment.md
+      - Statuts et alertes: reference/statuses.md
+      - Limites et volumétrie: reference/limits.md
+      - Commandes utiles: reference/commands.md

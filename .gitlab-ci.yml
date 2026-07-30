@@ -1,0 +1,63 @@
+stages:
+  - test
+  - documentation
+  - deploy
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
+variables:
+  UV_CONFIG_FILE: uv-corporate.toml
+  UV_CACHE_DIR: .uv-cache
+
+.uv_job:
+  cache:
+    key:
+      files:
+        - uv.lock
+    paths:
+      - .uv-cache/
+  before_script:
+    - uv --version
+    - uv --config-file "$UV_CONFIG_FILE" sync --locked --group dev
+
+tests:
+  extends: .uv_job
+  stage: test
+  script:
+    - uv --config-file "$UV_CONFIG_FILE" run --no-sync python -m compileall -q backend scripts
+    - PYTHONPATH=backend uv --config-file "$UV_CONFIG_FILE" run --no-sync python -m unittest discover -s tests -p "test_*.py"
+    - uv --config-file "$UV_CONFIG_FILE" run --no-sync python scripts/build_release.py --check
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+docs:build:
+  extends: .uv_job
+  stage: documentation
+  before_script:
+    - !reference [.uv_job, before_script]
+    - uv --config-file "$UV_CONFIG_FILE" pip install --python .venv/bin/python --requirement docs/requirements.txt
+  script:
+    - uv --config-file "$UV_CONFIG_FILE" run --no-sync mkdocs build --strict
+  artifacts:
+    expire_in: 7 days
+    paths:
+      - site/
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+pages:
+  extends: .uv_job
+  stage: deploy
+  before_script:
+    - !reference [.uv_job, before_script]
+    - uv --config-file "$UV_CONFIG_FILE" pip install --python .venv/bin/python --requirement docs/requirements.txt
+  script:
+    - uv --config-file "$UV_CONFIG_FILE" run --no-sync mkdocs build --strict --site-dir public
+  artifacts:
+    paths:
+      - public/
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
