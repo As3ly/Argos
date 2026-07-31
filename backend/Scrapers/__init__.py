@@ -1,5 +1,4 @@
 from .scrap_boamp import scrape_boamp_into_raw
-from .scrap_edf import scrape_edf_into_raw
 from .scrap_ted import scrape_ted_into_raw
 from datetime import date
 from typing import Any, Sequence
@@ -8,13 +7,11 @@ from db.repository import append_recherche_job_warning
 
 SCRAPER_LABELS = {
     "boamp": "BOAMP",
-    "edf": "EDF - Portail fournisseurs",
     "ted": "TED / JOUE",
 }
 
 SCRAPERS = [
     ("boamp", scrape_boamp_into_raw),
-    ("edf", scrape_edf_into_raw),
     ("ted", scrape_ted_into_raw),
 ]
 

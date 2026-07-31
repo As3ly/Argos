@@ -1,6 +1,6 @@
 # Argos
 
-Argos est un outil de veille d'appels d'offres techniques. Il transforme un besoin métier en mots-clés, interroge les sources BOAMP, TED/JOUE et EDF, puis extrait et classe les résultats avec Azure OpenAI dans une interface NiceGUI.
+Argos est un outil de veille d'appels d'offres techniques. Il transforme un besoin métier en mots-clés, interroge les sources BOAMP et TED/JOUE, puis extrait et classe les résultats avec Azure OpenAI dans une interface NiceGUI.
 
 ## Documentation
 

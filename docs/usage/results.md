@@ -39,10 +39,6 @@ Les alertes sont conservées dans `recherches_jobs.warnings_json` et affichées 
 | Type | Interprétation |
 |---|---|
 | `pagination_limit` | Une requête a atteint le plafond de 300 avis lus |
-| `captcha_required` | EDF demande une validation humaine |
-| `access_policy_denied` | La politique du portail EDF n'autorise pas la collecte |
-| `authorized_session_config_error` | La session EDF autorisée est absente ou invalide |
-| `portal_format_error` | La structure HTML EDF a changé |
 | `scraper_error` | Erreur générique d'une source |
 
 Une alerte de source signifie que les résultats sont partiels, pas que les résultats déjà présents sont invalides.

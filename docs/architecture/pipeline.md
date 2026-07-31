@@ -29,8 +29,7 @@ L'utilisateur peut ensuite ajouter ou supprimer des groupes de mots-clés. La re
 Le statut devient `scraping`. `run_all_scrapers()` exécute les sources sélectionnées dans cet ordre :
 
 1. BOAMP ;
-2. EDF ;
-3. TED / JOUE.
+2. TED / JOUE.
 
 Chaque source :
 
@@ -86,4 +85,4 @@ stateDiagram-v2
 ```
 
 !!! note "Erreur partielle"
-    Une erreur EDF, BOAMP ou TED gérée par l'orchestrateur ne mène pas à `erreur_scraper`. Elle est enregistrée comme alerte et le pipeline poursuit normalement.
+    Une erreur BOAMP ou TED gérée par l'orchestrateur ne mène pas à `erreur_scraper`. Elle est enregistrée comme alerte et le pipeline poursuit normalement.

@@ -393,7 +393,7 @@ def build_story() -> list:
         Paragraph("Guide d'installation et d'utilisation", styles["CoverTitle"]),
         Paragraph(
             "Version 1.2.0 - Edition mise à jour en juillet 2026<br/>"
-            "BOAMP, EDF Portail fournisseurs et TED/JOUE",
+            "BOAMP et TED/JOUE",
             styles["CoverSubtitle"],
         ),
         Spacer(1, 4 * mm),
@@ -419,7 +419,7 @@ def build_story() -> list:
     # 2 - Repères
     story += page_title(
         "Bien démarrer",
-        "Ce guide couvre l'installation locale, la recherche d'appels d'offres, la bibliothèque de prompts et les comportements spécifiques à EDF.",
+        "Ce guide couvre l'installation locale, la recherche d'appels d'offres et la bibliothèque de prompts.",
     )
     story += [
         Paragraph("Parcours express", styles["H2x"]),
@@ -438,13 +438,13 @@ def build_story() -> list:
                 ("Pages 3-4", "Installation, configuration et lancement."),
                 ("Pages 5-7", "Première recherche, résultats et erreurs non bloquantes."),
                 ("Pages 8-9", "Tutoriel complet des prompts sauvegardés."),
-                ("Pages 10-12", "EDF/CAPTCHA, données locales, dépannage et bonnes pratiques."),
+                ("Pages 10-11", "Données locales, dépannage et bonnes pratiques."),
             ]
         ),
         Spacer(1, 5 * mm),
         callout(
             "Principe à retenir",
-            "Chaque source est indépendante. Si BOAMP, EDF ou TED rencontre une erreur, Argos poursuit avec les autres sources et affiche l'incident dans le détail de la recherche.",
+            "Chaque source est indépendante. Si BOAMP ou TED rencontre une erreur, Argos poursuit avec l'autre source et affiche l'incident dans le détail de la recherche.",
             tone="green",
         ),
         Spacer(1, 4 * mm),
@@ -452,7 +452,7 @@ def build_story() -> list:
         bullets(
             [
                 "Python 3.13 ou une installation <b>uv</b> capable de fournir la version attendue.",
-                "Accès au dépôt Argos et aux services réseau nécessaires (Azure OpenAI, BOAMP, TED et, si autorisé, EDF).",
+                "Accès au dépôt Argos et aux services réseau nécessaires (Azure OpenAI, BOAMP et TED).",
                 "Une clé et un déploiement Azure OpenAI valides.",
                 "Les paramètres proxy de l'environnement Framatome/Fra lorsque le réseau les impose.",
             ]
@@ -491,15 +491,9 @@ def build_story() -> list:
             "AZURE_API_KEY=...\n"
             "AZURE_ENDPOINT=https://<ressource>.openai.azure.com\n"
             "DEPLOYMENT=<nom_du_deploiement>\n"
-            "API_VERSION=2024-10-21\n"
-            "ARGOS_EDF_CAPTCHA_MODE=fail"
+            "API_VERSION=2024-10-21"
         ),
         Spacer(1, 4 * mm),
-        callout(
-            "Configuration sûre par défaut",
-            "Le mode EDF <b>fail</b> ne tente pas de résoudre ni de contourner un CAPTCHA. Si EDF exige un contrôle, la source est signalée indisponible pour cette exécution et la recherche continue.",
-            tone="amber",
-        ),
         PageBreak(),
     ]
 
@@ -521,7 +515,7 @@ def build_story() -> list:
             [
                 ("Nouvelle recherche", "Le grand champ reçoit le besoin métier en langage naturel."),
                 ("Période", "Les dates de publication bornent les résultats demandés aux sources."),
-                ("Sources", "BOAMP, EDF et TED peuvent être activées ou désactivées séparément."),
+                ("Sources", "BOAMP et TED peuvent être activées ou désactivées séparément."),
                 ("Historique", "Chaque exécution est stockée localement avec son statut et ses résultats."),
             ]
         ),
@@ -539,7 +533,7 @@ def build_story() -> list:
             [
                 "Décrire le besoin dans le champ principal : métier, prestations visées, zone et exclusions utiles.",
                 "Choisir la date minimale et la date maximale de publication. Le raccourci <b>7 derniers jours</b> rétablit la période récente.",
-                "Cocher une ou plusieurs sources : <b>BOAMP</b>, <b>EDF - Portail fournisseurs</b> et/ou <b>TED (JOUE)</b>.",
+                "Cocher une ou plusieurs sources : <b>BOAMP</b> et/ou <b>TED (JOUE)</b>.",
                 "Cliquer sur <b>Rechercher</b>. Argos crée la recherche et ouvre l'assistant de mots-clés.",
                 "Supprimer les groupes inutiles, ajouter des groupes si nécessaire, puis cliquer sur <b>Valider et lancer</b>.",
                 "Laisser la recherche se terminer. Le statut et les compteurs se mettent à jour automatiquement.",
@@ -579,9 +573,9 @@ def build_story() -> list:
         cards(
             [
                 ("BOAMP", "Marchés publics français. Recherche paginée et filtrée sur la période choisie."),
-                ("EDF", "Avis publics du portail fournisseurs EDF, sous réserve de la politique d'accès et d'une éventuelle session autorisée."),
                 ("TED / JOUE", "Avis européens. Recherche paginée sur les publications du Journal officiel de l'Union européenne."),
                 ("Tri IA", "Les annonces collectées sont comparées au besoin initial puis classées comme pertinentes ou non pertinentes."),
+                ("Limite TED", "Les réponses 429 sont reprises automatiquement avec une attente progressive et bornée."),
             ]
         ),
         Spacer(1, 5 * mm),
@@ -619,12 +613,11 @@ def build_story() -> list:
         "Ouvrez une recherche depuis l'historique pour retrouver son prompt, ses paramètres, ses alertes et les appels d'offres associés.",
     )
     story += [
-        screenshot(
-            "03-detail-recherche.png",
-            "Détail d'une recherche : paramètres, alerte EDF non bloquante et cartes d'appels d'offres.",
-            max_h=161 * mm,
+        Paragraph(
+            "Le panneau de détail réunit les paramètres de la recherche, les alertes éventuelles et les cartes d'appels d'offres classées.",
+            styles["Bodyx"],
         ),
-        Spacer(1, 4 * mm),
+        Spacer(1, 6 * mm),
         cards(
             [
                 ("Score", "Indique la proximité estimée entre l'annonce et le besoin initial."),
@@ -710,53 +703,7 @@ def build_story() -> list:
         PageBreak(),
     ]
 
-    # 10 - EDF / CAPTCHA
-    story += page_title(
-        "EDF : accès, CAPTCHA et autorisation",
-        "Argos ne résout pas automatiquement un CAPTCHA et n'essaie pas de le contourner. La configuration par défaut privilégie la conformité et la continuité des autres sources.",
-    )
-    story += [
-        callout(
-            "Mode par défaut recommandé",
-            "Avec <b>ARGOS_EDF_CAPTCHA_MODE=fail</b>, si EDF présente un CAPTCHA, la collecte EDF s'arrête, une alerte est enregistrée et BOAMP/TED continuent.",
-            tone="green",
-        ),
-        Spacer(1, 4 * mm),
-        Paragraph("Session prévalidée, uniquement après accord EDF", styles["H2x"]),
-        Paragraph(
-            "Si un administrateur EDF fournit une autorisation explicite et une session officiellement validée, Argos peut réutiliser le cookie de cette session. Ce mode ne casse pas le CAPTCHA : il réemploie une preuve de session légitime et temporaire.",
-            styles["Bodyx"],
-        ),
-        code_block(
-            "ARGOS_EDF_CAPTCHA_MODE=prevalidated_session\n"
-            "ARGOS_EDF_SCRAPING_AUTHORIZED=true\n"
-            "ARGOS_EDF_AUTHORIZED_SESSION_COOKIE=ASP.NET_SessionId=...; autre_cookie=..."
-        ),
-        Spacer(1, 4 * mm),
-        callout(
-            "Trois garde-fous obligatoires",
-            "Le mode, l'autorisation booléenne et le cookie doivent être présents ensemble. Sans ces trois éléments, EDF reste désactivé. Le cookie est un secret : uniquement dans <b>.env</b>, jamais dans Git, les logs, une capture ou un ticket.",
-            tone="amber",
-        ),
-        Spacer(1, 4 * mm),
-        Paragraph("Politique robots.txt", styles["H2x"]),
-        Paragraph(
-            "Le portail EDF peut publier une politique interdisant la collecte automatisée. Argos respecte cette politique par défaut. La variable d'autorisation ne doit être activée qu'après validation explicite, documentée et toujours en vigueur de l'administrateur EDF compétent.",
-            styles["Bodyx"],
-        ),
-        Paragraph("Renouvellement et diagnostic", styles["H2x"]),
-        bullets(
-            [
-                "Une session expirée provoque une nouvelle alerte EDF sans bloquer les autres sources.",
-                "Demander un nouveau cookie officiel ; ne pas automatiser la résolution du CAPTCHA.",
-                "Limiter la diffusion de la session et la supprimer dès qu'elle n'est plus nécessaire.",
-                "Conserver la configuration proxy Fra habituelle : le mode EDF n'autorise aucun contournement réseau.",
-            ]
-        ),
-        PageBreak(),
-    ]
-
-    # 11 - Données et maintenance
+    # 10 - Données et maintenance
     story += page_title(
         "Historique, données locales et mises à jour",
         "Argos conserve les recherches, les résultats et les prompts dans une base SQLite locale. Sauvegardez-la avant une opération de maintenance importante.",
@@ -795,7 +742,7 @@ def build_story() -> list:
         PageBreak(),
     ]
 
-    # 12 - Dépannage
+    # 11 - Dépannage
     story += page_title(
         "Dépannage et checklist",
         "Commencez par relire l'alerte affichée dans le détail. Elle distingue un problème global d'une source simplement indisponible.",
@@ -807,8 +754,8 @@ def build_story() -> list:
                 ("Erreur Azure", "Contrôler <b>AZURE_API_KEY</b>, <b>AZURE_ENDPOINT</b>, <b>DEPLOYMENT</b>, <b>API_VERSION</b> et le proxy."),
                 ("Timeout IA", "Augmenter <b>AZURE_READ_TIMEOUT_S</b> ou réduire <b>PROMPT_GEN_MAX_TOKENS</b>."),
                 ("Aucun résultat", "Élargir la période, simplifier les groupes de mots-clés et retirer les exclusions trop strictes."),
-                ("Alerte EDF CAPTCHA", "Conserver le mode <b>fail</b>, ou renouveler la session uniquement via l'administrateur EDF autorisé."),
                 ("Erreur d'une seule source", "Consulter les résultats des autres sources ; la recherche a pu se terminer correctement."),
+                ("TED trop sollicité", "Après cinq tentatives automatiques, attendre quelques minutes avant de relancer."),
             ]
         ),
         Spacer(1, 5 * mm),

@@ -6,7 +6,6 @@ Argos/
 │   ├── Scrapers/
 │   │   ├── __init__.py
 │   │   ├── scrap_boamp.py
-│   │   ├── scrap_edf.py
 │   │   └── scrap_ted.py
 │   ├── db/
 │   │   ├── migrations.py

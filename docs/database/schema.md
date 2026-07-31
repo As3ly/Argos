@@ -70,7 +70,7 @@ Référentiel technique initialisé avec :
 | `francemarches` | France Marchés | `0` |
 | `boamp` | BOAMP | `1` |
 | `ted` | TED / JOUE | `1` |
-| `edf` | EDF - Portail fournisseurs | `1` |
+| `edf` | EDF - Portail fournisseurs (historique) | `0` |
 
 Le registre d'exécution des scrapers reste actuellement défini dans `Scrapers/__init__.py`. Modifier uniquement `sources.active` ne retire donc pas automatiquement une source de l'interface.
 

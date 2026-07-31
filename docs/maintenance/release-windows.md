@@ -53,10 +53,9 @@ Sur un poste de test représentatif :
 4. ouvrir une base existante et vérifier les migrations ;
 5. créer, modifier et supprimer un prompt sauvegardé ;
 6. lancer une recherche courte BOAMP/TED ;
-7. vérifier une erreur EDF non bloquante ;
-8. consulter pertinents, non pertinents et détail ;
-9. fermer puis relancer l'application ;
-10. vérifier la conservation de la base.
+7. consulter pertinents, non pertinents et détail ;
+8. fermer puis relancer l'application ;
+9. vérifier la conservation de la base.
 
 ## Distribuer
 
@@ -65,7 +64,6 @@ Distribuer uniquement l'exécutable et son checksum via le canal interne approuv
 - `.env` ;
 - la base SQLite d'un utilisateur ;
 - les logs ;
-- le cookie EDF ;
 - le dossier source complet ;
 - les artefacts intermédiaires PyInstaller.
 

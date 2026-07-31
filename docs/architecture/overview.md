@@ -5,7 +5,7 @@ flowchart LR
     U["Utilisateur NiceGUI"] --> J["Recherche SQLite"]
     J --> G["Génération critères et mots-clés"]
     G --> V["Validation des mots-clés"]
-    V --> S["BOAMP, EDF, TED"]
+    V --> S["BOAMP, TED"]
     S --> R[("raw_recherches")]
     R --> E["Extraction Azure OpenAI"]
     E --> C["Classification Azure OpenAI"]
@@ -39,7 +39,7 @@ flowchart LR
 
 ## Concurrence
 
-Le scraping `requests`, bloquant, est exécuté dans un thread par `asyncio.to_thread`. Les sources sont ensuite parcourues séquentiellement dans l'ordre BOAMP, EDF, TED.
+Le scraping `requests`, bloquant, est exécuté dans un thread par `asyncio.to_thread`. Les sources sont ensuite parcourues séquentiellement dans l'ordre BOAMP, TED.
 
 Le traitement IA crée une tâche par avis brut exploitable. Un sémaphore limite à dix le nombre d'appels Azure simultanés dans le processus. SQLite utilise le mode WAL et un délai d'attente sur les écritures du traitement IA.
 

@@ -7,7 +7,6 @@ flowchart LR
     A["Argos"] --> P["Proxy FRA"]
     P --> B["API BOAMP"]
     P --> T["API TED"]
-    P --> E["Portail EDF"]
     P --> Z["Azure OpenAI"]
     C["Magasin de certificats Windows"] --> A
 ```
@@ -37,17 +36,6 @@ Le scraper sélectionne uniquement les champs utiles afin de limiter la taille d
 
 Les champs de procédure et de lots sont convertis en texte brut avant classification.
 
-## EDF
-
-- Transport : `requests.Session`, formulaires HTML Ivalua.
-- User-Agent : profil Microsoft Edge.
-- Délai : 30 secondes par GET ou POST.
-- Pagination : navigation par événements du formulaire.
-- Plafond : 300 lignes lues par groupe.
-- Filtrage de période : appliqué localement sur la date de publication lisible.
-
-Avant la collecte, Argos contrôle `robots.txt`, sauf lorsque l'administrateur a explicitement activé un accès autorisé. Le portail est abandonné proprement en cas de CAPTCHA, de session expirée ou de changement de structure HTML.
-
 ## Ordre et isolation
 
 Les sources sont appelées séquentiellement. Une panne n'empêche pas les sources suivantes lorsque `continue_on_error=True`, valeur utilisée par le pipeline.
@@ -58,5 +46,4 @@ Chaque source doit :
 - définir un délai explicite ;
 - ne jamais désactiver la validation TLS ;
 - appliquer un plafond documenté ;
-- ne jamais automatiser le contournement d'un contrôle d'accès ;
 - produire une alerte utilisateur exploitable.

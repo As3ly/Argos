@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import random
+import time
 from datetime import date, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -22,6 +25,11 @@ MAX_OFFRES_PAR_RECHERCHE = 300
 DEFAULT_SCOPE = "ACTIVE"
 DEFAULT_CPV_PREFIX: str | None = None
 DEFAULT_NOTICE_TYPES = ["cn-standard", "cn-social"]
+TED_MAX_ATTEMPTS = 5
+TED_BACKOFF_BASE_SECONDS = 2.0
+TED_BACKOFF_MAX_SECONDS = 60.0
+TED_REQUEST_DELAY_SECONDS = 1.0
+TED_RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
 
 TED_FIELDS = [
     "publication-number",
@@ -117,6 +125,8 @@ def _fetch_notices(
     query: str,
     page: int,
     limit: int = DEFAULT_LIMIT,
+    sleep_func=time.sleep,
+    random_func=random.random,
 ) -> list[dict[str, Any]]:
     if limit > 250:
         raise ValueError("L'API TED limite `limit` à 250 maximum.")
@@ -131,14 +141,36 @@ def _fetch_notices(
         "page": page,
     }
 
-    resp = session.post(
-        API_URL,
-        json=payload,
-        timeout=30,
-        headers={"Content-Type": "application/json"},
-    )
+    for attempt in range(1, TED_MAX_ATTEMPTS + 1):
+        resp = session.post(
+            API_URL,
+            json=payload,
+            timeout=30,
+            headers={"Content-Type": "application/json"},
+        )
 
-    if not resp.ok:
+        if resp.ok:
+            return _extract_notices(resp.json())
+
+        retryable = resp.status_code in TED_RETRYABLE_STATUS_CODES
+        if retryable and attempt < TED_MAX_ATTEMPTS:
+            delay = _ted_retry_delay(
+                resp.headers.get("Retry-After"),
+                attempt=attempt,
+                random_value=random_func(),
+            )
+            _LOGGER.warning(
+                "TED limite ou indisponible (status=%s, page=%s, tentative=%s/%s). "
+                "Nouvel essai dans %.1f s.",
+                resp.status_code,
+                page,
+                attempt,
+                TED_MAX_ATTEMPTS,
+                delay,
+            )
+            sleep_func(delay)
+            continue
+
         _LOGGER.error(
             "TED API error status=%s url=%s payload=%s body=%s",
             resp.status_code,
@@ -146,9 +178,27 @@ def _fetch_notices(
             payload,
             resp.text[:2000],
         )
+        resp.raise_for_status()
 
-    resp.raise_for_status()
-    return _extract_notices(resp.json())
+    raise RuntimeError("La boucle de tentatives TED s'est terminée sans réponse.")
+
+
+def _ted_retry_delay(retry_after: str | None, *, attempt: int, random_value: float) -> float:
+    """Calcule une attente bornée en respectant Retry-After (secondes ou date HTTP)."""
+    if retry_after:
+        try:
+            return min(TED_BACKOFF_MAX_SECONDS, max(0.0, float(retry_after)))
+        except ValueError:
+            try:
+                retry_at = parsedate_to_datetime(retry_after)
+                now = parsedate_to_datetime(time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()))
+                return min(TED_BACKOFF_MAX_SECONDS, max(0.0, (retry_at - now).total_seconds()))
+            except (TypeError, ValueError, OverflowError):
+                pass
+
+    exponential = TED_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1))
+    jitter = TED_BACKOFF_BASE_SECONDS * max(0.0, min(1.0, random_value))
+    return min(TED_BACKOFF_MAX_SECONDS, exponential + jitter)
 
 
 def _build_ted_url(record: dict[str, Any]) -> str:
@@ -223,10 +273,13 @@ def scrape_ted_into_raw(
     nb_inserts = 0
     recherches_limitees: list[dict[str, Any]] = []
 
-    for mots in mots_recherche:
+    for search_index, mots in enumerate(mots_recherche):
         keywords = " ".join(mots).strip() if isinstance(mots, list) else str(mots).strip()
         if not keywords:
             continue
+
+        if search_index > 0:
+            time.sleep(TED_REQUEST_DELAY_SECONDS)
 
         query = _build_ted_query(
             keywords=keywords,
@@ -282,6 +335,9 @@ def scrape_ted_into_raw(
                 break
 
             page += 1
+            # La temporisation entre pages évite de déclencher la limite TED sur
+            # les recherches larges. Un éventuel 429 reste géré dans _fetch_notices.
+            time.sleep(TED_REQUEST_DELAY_SECONDS)
 
     if recherches_limitees:
         warning_payload = {

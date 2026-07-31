@@ -83,14 +83,13 @@ def assert_corporate_constraints() -> None:
             raise RuntimeError(f"Contrainte corporate manquante dans uv-corporate.toml: {expected}")
 
     proxy_config = PROXY_CONFIG_FILE.read_text(encoding="utf-8")
-    for expected in ("DEFAULT_HTTP_PROXY", "DEFAULT_HTTPS_PROXY", FRA_PROXY_URL):
+    for expected in ("DEFAULT_HTTP_PROXY", "DEFAULT_HTTPS_PROXY", "ARGOS_HTTP_PROXY", "ARGOS_HTTPS_PROXY"):
         if expected not in proxy_config:
-            raise RuntimeError(f"Proxy Fra manquant dans backend/proxy_config.py: {expected}")
+            raise RuntimeError(f"Configuration proxy manquante dans backend/proxy_config.py: {expected}")
 
     ssl_callers = [
         ROOT / "backend" / "IAfiltre_async.py",
         ROOT / "backend" / "Scrapers" / "scrap_boamp.py",
-        ROOT / "backend" / "Scrapers" / "scrap_edf.py",
         ROOT / "backend" / "Scrapers" / "scrap_ted.py",
     ]
     for path in ssl_callers:

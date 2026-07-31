@@ -7,7 +7,7 @@ Argos est une application de veille dédiée aux appels d'offres techniques. Ell
 1. Enregistre le prompt, la période et les sources choisies.
 2. Génère un titre, des critères de pertinence et des groupes de mots-clés.
 3. Laisse l'utilisateur contrôler les mots-clés avant la collecte.
-4. Interroge BOAMP, TED/JOUE et, lorsque l'accès est autorisé, le portail public EDF.
+4. Interroge BOAMP et TED/JOUE.
 5. Déduplique et stocke les avis bruts dans SQLite.
 6. Extrait les champs métier et classe chaque avis comme pertinent ou non pertinent.
 7. Affiche les résultats, les compteurs et les éventuelles erreurs partielles de source.
@@ -29,7 +29,6 @@ Argos est une application de veille dédiée aux appels d'offres techniques. Ell
 - Les dépendances sont résolues depuis le Nexus interne avec `uv-corporate.toml`.
 - Le proxy FRA et le magasin de certificats système sont utilisés pour les flux sortants.
 - Une source indisponible ne doit pas bloquer les autres sources.
-- Un CAPTCHA ou une politique d'accès n'est jamais contourné automatiquement.
 - La base doit être sauvegardée avant toute migration, montée de version ou opération destructive.
 
 !!! note "Périmètre de la documentation"

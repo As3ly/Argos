@@ -40,16 +40,6 @@ Les variables Argos sont prioritaires, puis viennent les valeurs du module inter
 
 Le lanceur Windows positionne lui-même `ARGOS_DB_PATH` vers `%LOCALAPPDATA%\Argos\html_scrap.db`.
 
-## EDF
-
-| Variable | Défaut | Usage |
-|---|---:|---|
-| `ARGOS_EDF_CAPTCHA_MODE` | `fail` | `fail` ou `prevalidated_session` |
-| `ARGOS_EDF_SCRAPING_AUTHORIZED` | `false` | Confirme une autorisation explicite d'EDF |
-| `ARGOS_EDF_AUTHORIZED_SESSION_COOKIE` | vide | Session prévalidée autorisée |
-
-`prevalidated_session` exige simultanément l'autorisation et un cookie valide. Le cookie doit rester secret et être renouvelé lorsqu'EDF redemande un CAPTCHA.
-
 ## Ajouter une variable
 
 1. Définir un défaut sûr dans le code.

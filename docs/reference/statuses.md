@@ -13,15 +13,15 @@
 | `erreur_scraper` | Registre absent, aucune source ou erreur globale de scraping |
 | `erreur_pipeline` | Exception non gérée pendant le pipeline |
 
-Les erreurs individuelles de BOAMP, EDF ou TED ne changent pas nécessairement le statut final. Elles sont enregistrées comme alertes.
+Les erreurs individuelles de BOAMP ou TED ne changent pas nécessairement le statut final. Elles sont enregistrées comme alertes.
 
 ## Structure d'une alerte
 
 ```json
 {
-  "type": "captcha_required",
+  "type": "scraper_error",
   "severity": "error",
-  "source": "edf",
+  "source": "ted",
   "message": "Message destiné à l'utilisateur"
 }
 ```
@@ -48,10 +48,6 @@ Une alerte de pagination peut aussi contenir `limited_searches` :
 | Type | Sévérité habituelle | Action |
 |---|---|---|
 | `pagination_limit` | warning | Réduire période ou élargissement sémantique |
-| `captcha_required` | error | Laisser EDF désactivé ou renouveler une session autorisée |
-| `access_policy_denied` | error | Obtenir une autorisation avant activation |
-| `authorized_session_config_error` | error | Corriger les variables EDF |
-| `portal_format_error` | error | Adapter et tester le parseur EDF |
 | `scraper_error` | error | Diagnostiquer HTTP, proxy, TLS ou parsing |
 
 ## Interprétation opérationnelle

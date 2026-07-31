@@ -5,10 +5,9 @@ Argos charge le fichier `.env` situé à la racine du projet. Le fichier `.env.e
 ## Règles de sécurité
 
 - Ne jamais versionner `.env`.
-- Ne jamais copier une clé Azure ou un cookie EDF dans la documentation, un ticket ou un log.
+- Ne jamais copier une clé Azure dans la documentation, un ticket ou un log.
 - Utiliser des variables GitLab protégées et masquées pour la CI/CD.
 - Renouveler immédiatement tout secret exposé.
-- Restreindre le cookie de session EDF à une autorisation explicite et à la durée nécessaire.
 
 ## Configuration minimale
 
@@ -63,28 +62,5 @@ ARGOS_DB_PATH=/chemin/absolu/vers/argos.db
 ```
 
 Sur la version Windows packagée, le lanceur impose `%LOCALAPPDATA%\Argos\html_scrap.db`.
-
-## Source EDF
-
-Le mode sûr par défaut est :
-
-```env
-ARGOS_EDF_CAPTCHA_MODE=fail
-ARGOS_EDF_SCRAPING_AUTHORIZED=false
-ARGOS_EDF_AUTHORIZED_SESSION_COOKIE=
-```
-
-Dans ce mode, un CAPTCHA ou une interdiction dans `robots.txt` désactive EDF pour la recherche courante, tandis que BOAMP et TED continuent.
-
-Le mode `prevalidated_session` est réservé à une autorisation explicite d'EDF :
-
-```env
-ARGOS_EDF_CAPTCHA_MODE=prevalidated_session
-ARGOS_EDF_SCRAPING_AUTHORIZED=true
-ARGOS_EDF_AUTHORIZED_SESSION_COOKIE=<cookie_fourni_ou_valide_dans_le_cadre_autorise>
-```
-
-!!! danger "Aucun contournement"
-    Cette configuration ne résout pas un CAPTCHA. Elle réutilise uniquement une session déjà validée dans un cadre autorisé. Si la session expire, EDF est ignoré et une alerte est enregistrée.
 
 La liste exhaustive des variables figure dans [Variables d'environnement](../reference/environment.md).

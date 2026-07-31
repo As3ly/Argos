@@ -8,10 +8,9 @@ La maintenance d'Argos couvre quatre domaines : disponibilité des sources, qual
 2. Vérifier la cohérence des versions.
 3. Exécuter les tests et le build MkDocs strict.
 4. Tester au moins une recherche courte sur BOAMP et TED.
-5. Tester EDF uniquement dans le cadre d'accès autorisé.
-6. Vérifier les vues pertinentes et non pertinentes.
-7. Contrôler le SHA256 de l'exécutable.
-8. Ajouter l'évolution au changelog.
+5. Vérifier les vues pertinentes et non pertinentes.
+6. Contrôler le SHA256 de l'exécutable.
+7. Ajouter l'évolution au changelog.
 
 ## Chaque semaine
 
@@ -20,7 +19,7 @@ La maintenance d'Argos couvre quatre domaines : disponibilité des sources, qual
 | Recherches terminées | Compter les statuts récents | Jobs durablement en `scraping` ou `tri_ia` |
 | Résultats par source | Agrégation SQLite | Chute inhabituelle à zéro |
 | Raws restants | Compter `raw_recherches` | Accumulation après jobs terminés |
-| Alertes | Lire `warnings_json` | CAPTCHA, format de portail ou limites répétées |
+| Alertes | Lire `warnings_json` | Erreurs HTTP ou limites répétées |
 | Sauvegarde | `.backup` SQLite | Sauvegarde absente ou non vérifiée |
 
 ## Chaque mois
@@ -29,7 +28,7 @@ La maintenance d'Argos couvre quatre domaines : disponibilité des sources, qual
 - Vérifier la taille de la base et du fichier WAL.
 - Contrôler les dates d'expiration des accès et secrets.
 - Rejouer un petit corpus d'AO connus pour surveiller les faux positifs.
-- Vérifier les changements d'API BOAMP/TED et la structure du portail EDF.
+- Vérifier les changements d'API BOAMP/TED.
 - Contrôler que le lock utilise uniquement le Nexus interne.
 - Vérifier la construction de la documentation dans GitLab.
 
@@ -48,7 +47,6 @@ La maintenance d'Argos couvre quatre domaines : disponibilité des sources, qual
 Intervenir immédiatement lorsque :
 
 - une API modifie son schéma, son endpoint ou son authentification ;
-- le portail EDF change de grille ou de contrôle d'accès ;
 - le proxy, le certificat ou le Nexus change ;
 - le déploiement Azure est remplacé ;
 - une migration SQLite est nécessaire ;

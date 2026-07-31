@@ -7,24 +7,28 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
+import requests
 import db.repository as repository
 import pipeline
+import Scrapers
 from Scrapers.scrap_boamp import _build_where_clause, _fetch_records
-from Scrapers.scrap_ted import _build_ted_query, _fetch_notices
+from Scrapers.scrap_ted import _build_ted_query, _fetch_notices, _ted_retry_delay
 from proxy_config import get_requests_proxies
 
 
 class _Response:
-    ok = True
-    status_code = 200
     url = "https://example.test/api"
-    text = ""
 
-    def __init__(self, payload):
+    def __init__(self, payload, *, status_code=200, headers=None):
         self._payload = payload
+        self.status_code = status_code
+        self.ok = 200 <= status_code < 400
+        self.headers = headers or {}
+        self.text = "" if self.ok else "temporary error"
 
     def raise_for_status(self) -> None:
-        return None
+        if not self.ok:
+            raise requests.HTTPError(f"{self.status_code} error")
 
     def json(self):
         return self._payload
@@ -84,6 +88,48 @@ class PublicApiContractTests(unittest.TestCase):
         self.assertEqual(payload["page"], 1)
         self.assertIn("publication-date >= 20260701", payload["query"])
 
+    def test_ted_retries_429_and_respects_retry_after(self) -> None:
+        session = mock.Mock()
+        session.post.side_effect = [
+            _Response({}, status_code=429, headers={"Retry-After": "3"}),
+            _Response({"notices": [{"publication-number": "1-2026"}]}),
+        ]
+        sleeps: list[float] = []
+
+        rows = _fetch_notices(
+            session,
+            query="FT~(vibration)",
+            page=1,
+            limit=10,
+            sleep_func=sleeps.append,
+            random_func=lambda: 0.0,
+        )
+
+        self.assertEqual(rows[0]["publication-number"], "1-2026")
+        self.assertEqual(session.post.call_count, 2)
+        self.assertEqual(sleeps, [3.0])
+
+    def test_ted_stops_after_bounded_number_of_429_responses(self) -> None:
+        session = mock.Mock()
+        session.post.return_value = _Response({}, status_code=429)
+
+        with self.assertRaises(requests.HTTPError):
+            _fetch_notices(
+                session,
+                query="FT~(vibration)",
+                page=1,
+                limit=10,
+                sleep_func=lambda _delay: None,
+                random_func=lambda: 0.0,
+            )
+
+        self.assertEqual(session.post.call_count, 5)
+
+    def test_ted_backoff_is_exponential_and_bounded(self) -> None:
+        self.assertEqual(_ted_retry_delay(None, attempt=1, random_value=0.0), 2.0)
+        self.assertEqual(_ted_retry_delay(None, attempt=3, random_value=0.5), 9.0)
+        self.assertEqual(_ted_retry_delay("120", attempt=1, random_value=0.0), 60.0)
+
 
 class PipelineOrchestrationTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -95,6 +141,13 @@ class PipelineOrchestrationTests(unittest.IsolatedAsyncioTestCase):
     def tearDown(self) -> None:
         repository.DB_PATH = self.previous_db_path
         self.temp_dir.cleanup()
+
+    async def test_only_boamp_and_ted_are_available(self) -> None:
+        self.assertEqual(Scrapers.list_scraper_names(), ["boamp", "ted"])
+        with repository.get_conn() as conn:
+            edf = conn.execute("SELECT active FROM sources WHERE code = 'edf'").fetchone()
+        self.assertIsNotNone(edf)
+        self.assertEqual(edf["active"], 0)
 
     async def test_successful_scraping_and_ai_marks_job_complete(self) -> None:
         search_id = repository.create_recherche_job(requete="test", source="boamp,ted")

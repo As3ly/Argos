@@ -28,19 +28,10 @@ Si BOAMP et TED échouent simultanément avec `ConnectionError`, vérifier en pr
 adresse de proxy peut couper toutes les sources. Supprimer les variables obsolètes
 pour revenir à la connexion directe, ou renseigner l'adresse fournie par l'équipe réseau.
 
-## EDF demande un CAPTCHA
-
-Comportement attendu :
-
-- EDF est ignoré ;
-- une alerte `captcha_required` apparaît ;
-- BOAMP et TED continuent.
-
-Ne pas automatiser la résolution. Si une autorisation EDF existe, renouveler la session prévalidée conformément à la procédure autorisée.
-
-## EDF est refusé par `robots.txt`
-
-Sans autorisation explicite, Argos enregistre `access_policy_denied`. Vérifier la décision d'accès avec le responsable de la source avant toute activation.
+Un `429 Too Many Requests` isolé de TED est repris automatiquement, jusqu'à cinq
+tentatives. Si l'alerte TED persiste après ces tentatives, attendre quelques minutes
+avant de relancer : la limite est appliquée par TED et peut être partagée entre les
+utilisateurs sortant par le même proxy d'entreprise.
 
 ## La base est verrouillée
 

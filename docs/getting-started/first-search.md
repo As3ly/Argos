@@ -28,10 +28,7 @@ Une exclusion doit être formulée explicitement. Les formulations courtes mais 
 La période par défaut couvre les sept derniers jours. Les sources proposées sont :
 
 - BOAMP ;
-- EDF - Portail fournisseurs ;
 - TED / JOUE.
-
-EDF peut être indisponible si le portail demande un CAPTCHA ou si aucune autorisation explicite ne permet la collecte. Cette indisponibilité n'interrompt pas les autres sources.
 
 ## 3. Vérifier les mots-clés
 
@@ -65,7 +62,7 @@ Ouvrir le détail de la recherche puis :
 - vérifier les alertes de pagination ou de source ;
 - ouvrir le lien d'origine avant toute décision métier.
 
-![Détail d'une recherche](../assets/guide/03-detail-recherche.png)
+Le panneau de détail affiche les paramètres, les alertes éventuelles et les cartes d'appels d'offres classées.
 
 !!! note "Responsabilité de validation"
     La classification aide au tri ; elle ne remplace pas la lecture de l'avis officiel. Un champ absent de la réponse de la source ne peut pas être déduit de manière fiable.

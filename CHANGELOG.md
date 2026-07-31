@@ -4,15 +4,15 @@ Toutes les evolutions notables d'Argos sont documentees ici.
 
 ## [Non publie]
 
+### Retire
+
+- Le scraper EDF, son option d'interface et sa configuration, car le portail ne constitue pas une source automatisable suffisamment fiable pour Argos.
+
 ### Ajoute
 
 - Documentation technique et d'exploitation en MkDocs : prise en main, architecture, maintenance, SQLite et references.
 - Pipeline GitLab CI pour les tests, le controle du paquet Windows, la construction stricte de la documentation et sa publication avec GitLab Pages.
-- Guide d'installation et d'utilisation entièrement actualisé avec les écrans de la version 1.2.0, le tutoriel des prompts sauvegardés et le fonctionnement EDF/CAPTCHA.
-- Source `EDF - Portail fournisseurs` avec recherche, pagination, filtre de periode et dedoublonnage.
-- Detection explicite du CAPTCHA Ivalua sans tentative de contournement.
-- Respect par defaut de la politique `robots.txt`, avec activation reservee a une autorisation explicite d'EDF.
-- Mode optionnel de session EDF pre-validee, configure par variables d'environnement et sans resolution automatique du CAPTCHA.
+- Guide d'installation et d'utilisation entièrement actualisé avec les écrans de la version 1.2.0 et le tutoriel des prompts sauvegardés.
 - Affichage des erreurs partielles de source dans le detail d'une recherche.
 
 ### Technique

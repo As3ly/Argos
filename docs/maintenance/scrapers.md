@@ -37,23 +37,9 @@ Surveiller :
 
 Le périmètre actuel filtre `FRA`. Toute extension géographique doit être explicite et testée, car elle augmente fortement le volume.
 
-## EDF
-
-Le parseur dépend des identifiants et libellés de la grille Ivalua. Une évolution peut affecter :
-
-- le formulaire principal ;
-- le champ de recherche ;
-- le bouton de soumission ;
-- la grille et ses colonnes ;
-- les événements de pagination ;
-- les formats de dates ;
-- le chemin de détection du CAPTCHA.
-
-En cas de `portal_format_error`, capturer uniquement un extrait structurel non sensible pour adapter les sélecteurs. Ne pas enregistrer les cookies ni le formulaire complet dans le dépôt.
-
 ## Garde-fous de volume
 
-Les trois scrapers s'arrêtent après 300 avis lus par groupe. Une alerte `pagination_limit` est alors ajoutée. Si ce cas devient fréquent :
+Les deux scrapers s'arrêtent après 300 avis lus par groupe. Une alerte `pagination_limit` est alors ajoutée. Si ce cas devient fréquent :
 
 1. améliorer la précision des groupes de mots-clés ;
 2. réduire la période ;

@@ -170,9 +170,9 @@ def initialize_database() -> None:
         )
         ensure_source(
             "edf",
-            label="EDF - Portail fournisseurs",
-            base_url="https://pha2.edf.com/page.aspx/fr/rfp/request_browse_public",
-            active=1,
+            label="EDF - Portail fournisseurs (retiré)",
+            base_url=None,
+            active=0,
             conn=conn,
         )
 

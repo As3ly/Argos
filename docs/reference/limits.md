@@ -16,8 +16,11 @@ Le prompt conseille habituellement 5 à 15 groupes. L'interface permet ensuite l
 | Source | Taille de page | Plafond par groupe | Délai |
 |---|---:|---:|---:|
 | BOAMP | 100 | 300 avis lus | 30 s |
-| TED | 100 | 300 avis lus | 30 s |
-| EDF | Taille du portail | 300 lignes lues | 30 s par requête |
+| TED | 100 | 300 avis lus | 30 s par tentative |
+
+TED espace les pages d'une seconde. Les réponses `429`, `502`, `503` et `504`
+sont retentées au maximum cinq fois avec un délai exponentiel, du jitter et le
+respect de l'en-tête `Retry-After` (attente plafonnée à 60 secondes).
 
 Le plafond est appliqué séparément à chaque groupe de mots-clés et à chaque source. Avec 15 groupes et trois sources, le nombre théorique d'avis lus peut donc être important, même si les liens sont ensuite dédupliqués.
 
