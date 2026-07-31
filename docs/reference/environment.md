@@ -22,14 +22,14 @@ La génération ajoute jusqu'à 1 000 tokens par nouvelle tentative, avec un pla
 
 | Variable | Défaut | Usage |
 |---|---:|---|
-| `ARGOS_HTTP_PROXY` | Proxy FRA | Flux HTTP des scrapers |
-| `ARGOS_HTTPS_PROXY` | Proxy FRA | Flux HTTPS des scrapers |
+| `ARGOS_HTTP_PROXY` | Aucun | Flux HTTP des scrapers |
+| `ARGOS_HTTPS_PROXY` | Aucun | Flux HTTPS des scrapers |
 | `HTTP_PROXY` / `http_proxy` | Aucun | Repli système HTTP |
 | `HTTPS_PROXY` / `https_proxy` | Aucun | Repli système HTTPS |
 | `AZURE_USE_PROXY` | `true` | Active le proxy pour Azure |
-| `AZURE_PROXY_URL` | Proxy HTTPS Argos | Surcharge Azure |
+| `AZURE_PROXY_URL` | Proxy HTTPS Argos s'il existe | Surcharge Azure |
 
-Les valeurs du module interne, lorsqu'il est installé, sont prioritaires sur les variables Argos.
+Les variables Argos sont prioritaires, puis viennent les valeurs du module interne lorsqu'il est installé. Sans module ni variable, la connexion est directe ; aucune adresse de proxy n'est codée en dur.
 
 ## SQLite
 

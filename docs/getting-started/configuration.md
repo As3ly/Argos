@@ -25,12 +25,16 @@ Les quatre valeurs sont validées au premier appel à Azure OpenAI. L'interface 
 
 Le proxy est résolu dans cet ordre :
 
-1. valeurs fournies par le module interne lorsqu'il est disponible ;
-2. `ARGOS_HTTP_PROXY` et `ARGOS_HTTPS_PROXY` ;
+1. `ARGOS_HTTP_PROXY` et `ARGOS_HTTPS_PROXY` ;
+2. valeurs fournies par le module interne lorsqu'il est disponible ;
 3. variables système `HTTP_PROXY` et `HTTPS_PROXY` ;
-4. proxy FRA défini par défaut dans `backend/proxy_config.py`.
+4. connexion directe si aucune valeur n'est configurée.
 
-Azure utilise le proxy HTTPS Argos par défaut. Pour le désactiver explicitement :
+Argos ne contient pas d'adresse de proxy codée en dur : elle deviendrait rapidement
+obsolète selon le site, le VPN ou la politique réseau. Sur un poste qui exige le
+proxy FRA, le renseigner dans `.env` ou utiliser le module interne.
+
+Azure utilise le proxy HTTPS Argos lorsqu'il est configuré. Pour le désactiver explicitement :
 
 ```env
 AZURE_USE_PROXY=false

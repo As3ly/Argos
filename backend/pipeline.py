@@ -133,6 +133,13 @@ async def run_full_pipeline(
     
     parsed_date_pub_min = _coerce_date(date_pub_min)
     parsed_date_pub_max = _coerce_date(date_pub_max)
+    if (
+        parsed_date_pub_min is not None
+        and parsed_date_pub_max is not None
+        and parsed_date_pub_min > parsed_date_pub_max
+    ):
+        update_recherche_job(search_id, statut="erreur_scraper")
+        raise ValueError("La date de début doit être antérieure ou égale à la date de fin.")
 
     # 2) scraping API (bloquant) -> thread
     await asyncio.to_thread(

@@ -17,11 +17,16 @@ Le job passe normalement à `erreur_generation`.
 1. Ouvrir le détail de la recherche.
 2. Lire les alertes.
 3. Vérifier la période et les mots-clés.
-4. Contrôler la connectivité via le proxy FRA.
+4. Contrôler la connectivité directe ou via le proxy configuré.
 5. Tester une requête minimale sans modifier la production.
 6. Comparer les compteurs récents de cette source.
 
 Un volume nul n'est pas toujours une panne : la requête peut être trop restrictive.
+
+Si BOAMP et TED échouent simultanément avec `ConnectionError`, vérifier en priorité
+`ARGOS_HTTP_PROXY`, `ARGOS_HTTPS_PROXY`, `HTTP_PROXY` et `HTTPS_PROXY`. Une ancienne
+adresse de proxy peut couper toutes les sources. Supprimer les variables obsolètes
+pour revenir à la connexion directe, ou renseigner l'adresse fournie par l'équipe réseau.
 
 ## EDF demande un CAPTCHA
 
